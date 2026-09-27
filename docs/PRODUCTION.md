@@ -62,6 +62,26 @@ Si le réseau de NPM change, modifier `PROXY_NETWORK` dans `shared/.env`, puis r
 
 Configurer `MAILER_DSN` et `MAIL_FROM` dans `/srv/gpix/shared/.env` pour permettre les réinitialisations de mot de passe. Ne pas utiliser Mailpit en production. Sans SMTP, inscription et connexion restent possibles mais la récupération de mot de passe est indisponible. Redéployer après modification des variables.
 
+Pour l'expéditeur retenu, `sender@example.org` :
+
+1. Activer la validation en deux étapes du compte Google si nécessaire, puis ouvrir [Mots de passe des applications](https://myaccount.google.com/apppasswords). Créer un mot de passe pour « Gpix serveur ». Le mot de passe habituel du compte ne convient pas. Si cette option n'est pas disponible, vérifier les restrictions du compte dans [l'aide Google](https://support.google.com/mail/answer/185833?hl=fr).
+2. En SSH, `nano /srv/gpix/shared/.env`. Remplacer les lignes suivantes en insérant le mot de passe d'application de 16 caractères, sans espaces :
+
+   ```dotenv
+   MAILER_DSN=smtps://sender%40example.org:MOT_DE_PASSE_APPLICATION@smtp.example.org:465
+   MAIL_FROM=sender@example.org
+   ```
+
+3. Appliquer la configuration aux deux conteneurs, puis envoyer explicitement un mail de test à sa propre boîte :
+
+   ```sh
+   cd /srv/gpix/current
+   make prod-reload
+   make prod-mail-test TO=sender@example.org
+   ```
+
+Le premier message confirme l'acceptation par SMTP ; vérifier aussi la réception dans Gmail, y compris les indésirables. Les identifiants restent exclusivement sur le serveur et les mises à jour ne remplacent pas `.env`. Référence : [SMTP Gmail, SSL sur le port 465](https://support.google.com/a/answer/176600).
+
 Le profil VS Code **Gpix · Prod** du projet mobile utilise `https://api.example.org`. Il ne préremplit aucun compte de fixture : créer son compte depuis l'application. Le DNS et le certificat doivent être opérationnels avant de lancer F5.
 
 ## Exploitation et reprise

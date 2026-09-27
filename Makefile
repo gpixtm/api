@@ -6,6 +6,14 @@ ci:
 deploy:
 	sh tools/deploy.sh
 
+.PHONY: prod-reload prod-mail-test prod-status
+prod-reload:
+	sh tools/production.sh reload
+prod-mail-test:
+	sh tools/production.sh mail-test "$(TO)"
+prod-status:
+	sh tools/production.sh status
+
 DC := docker compose
 SH := sh
 DART := ../.tooling/flutter/bin/dart
