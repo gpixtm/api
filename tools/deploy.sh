@@ -6,6 +6,8 @@ source_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 root=${DEPLOY_ROOT:-/srv/gpix}
 case "$root" in /*) ;; *) echo 'DEPLOY_ROOT must be absolute.' >&2; exit 1;; esac
 mkdir -p "$root/releases" "$root/shared/maps" "$root/backups"
+# Apache must be able to traverse the read-only maps mount; secrets stay private.
+chmod 755 "$root/shared/maps"
 exec 9>"$root/deploy.lock"
 flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
 revision=$(git -C "$source_dir" rev-parse HEAD)
@@ -31,10 +33,11 @@ for key in DB_PASSWORD APP_SECRET; do
   grep -Eq "^${key}=[a-f0-9]{64}$" "$env_file" || { echo "Missing/invalid $key in shared/.env" >&2; exit 1; }
 done
 if [ ! -d "$release" ]; then
-  mkdir "$release"
+  staging=$(mktemp -d "$root/releases/.staging-XXXXXXXX")
   git -C "$source_dir" archive --format=tar --output="$root/release.tar.part" "$revision"
-  tar -xf "$root/release.tar.part" -C "$release"
+  tar -xf "$root/release.tar.part" -C "$staging"
   rm "$root/release.tar.part"
+  mv "$staging" "$release"
 fi
 cd "$release"
 prod() { docker compose --env-file "$env_file" -f compose.prod.yaml "$@"; }
