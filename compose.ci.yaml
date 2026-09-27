@@ -14,11 +14,16 @@ services:
       timeout: 3s
       retries: 30
   api:
+    image: gpix-ci-api
     build: .
-    environment:
+    environment: &app-environment
       DB_HOST: db
       DB_PASSWORD: ci-only-not-a-production-secret
       APP_SECRET: ci-only-012345678901234567890123456789
+      MAILER_DSN: smtp://mailpit:1025
+      MAIL_FROM: gpix@example.test
+    ports:
+      - '127.0.0.1::80'
     depends_on:
       db:
         condition: service_healthy
@@ -27,3 +32,16 @@ services:
       interval: 3s
       timeout: 5s
       retries: 30
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    ports:
+      - '127.0.0.1::8025'
+  mail-worker:
+    image: gpix-ci-api
+    command: [php, bin/mail-worker.php]
+    environment: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started

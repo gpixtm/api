@@ -16,10 +16,14 @@ ci run --rm --no-deps api sh -c 'find src bin public tests -name "*.php" -print0
 ci up -d --wait db
 ci run --rm api php bin/migrate.php
 ci run --rm api php bin/migrate.php
-ci up -d --wait api
+ci up -d --wait api mailpit mail-worker
 ci exec -T api php tests/accounts.php
 ci exec -T api php tests/run.php
 ci exec -T api php tests/approach.php
+export COMPOSE_FILE=compose.ci.yaml
+export TEST_API_URL="http://$(ci port api 80)"
+export TEST_MAILPIT_URL="http://$(ci port mailpit 8025)"
+"${PYTHON:-python3}" tests/http_acceptance.py --mailpit
 # Recreate the API, keeping PostgreSQL alive, and verify readiness again.
 ci up -d --wait --force-recreate api
 ci exec -T api php bin/health.php

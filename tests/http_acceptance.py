@@ -4,6 +4,7 @@ Run from backend/: python tests/http_acceptance.py. Requires the local Docker
 stack after migrations. No real email is sent and no fixture account is changed.
 """
 import json
+import os
 import subprocess
 import re
 import sys
@@ -13,7 +14,8 @@ import urllib.parse
 import urllib.request
 import uuid
 
-BASE = 'http://127.0.0.1:8080'
+BASE = os.environ.get('TEST_API_URL', 'http://127.0.0.1:8080')
+MAILPIT = os.environ.get('TEST_MAILPIT_URL', 'http://127.0.0.1:8025')
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 created = []
 
@@ -41,7 +43,7 @@ def check(label):
 
 
 def reset_code(email, previous=None):
-    url = 'http://127.0.0.1:8025/view/latest.txt?' + urllib.parse.urlencode({'query': 'to:' + email})
+    url = MAILPIT + '/view/latest.txt?' + urllib.parse.urlencode({'query': 'to:' + email})
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         try:

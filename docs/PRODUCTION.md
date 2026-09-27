@@ -13,6 +13,8 @@ git push origin main
 
 Le workflow appelle `make ci`, puis `make deploy`. Le dépôt doit rester privé et seuls les mainteneurs autorisés doivent pouvoir pousser sur `main` : ce runner dispose de Docker sur le serveur de production. Les PR ne déclenchent jamais le job de déploiement.
 
+La CI vérifie aussi par HTTP la demande de réinitialisation, l'envoi SMTP via le worker dans un Mailpit isolé, la réception du code et son usage unique/expiration. Aucun mail de test CI ne quitte ce réseau Docker. `make ci` nécessite Python 3 pour ces tests HTTP.
+
 `/srv/gpix/` contient :
 
 - `releases/<commit>/` : sources exactes de chaque version ;

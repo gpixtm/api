@@ -35,7 +35,8 @@ done
 if [ ! -d "$release" ]; then
   staging=$(mktemp -d "$root/releases/.staging-XXXXXXXX")
   git -C "$source_dir" archive --format=tar --output="$root/release.tar.part" "$revision"
-  tar -xf "$root/release.tar.part" -C "$staging"
+  # Preserve Git's public source permissions despite the private-state umask.
+  tar -xpf "$root/release.tar.part" -C "$staging"
   rm "$root/release.tar.part"
   mv "$staging" "$release"
 fi
