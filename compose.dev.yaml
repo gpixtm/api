@@ -1,0 +1,5 @@
+# Only make dev opts into LAN publication. Compose >= 2.24.4 is required.
+services:
+  api:
+    ports: !override
+      - '${DEV_BIND_IP:?Use make dev}:${DEV_HTTP_PORT:-8080}:80'

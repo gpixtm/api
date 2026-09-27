@@ -1,0 +1,22 @@
+{
+  "name": "gpix/personal-api",
+  "description": "Personal offline hiking library API",
+  "license": "proprietary",
+  "type": "project",
+  "require": {
+    "php": ">=8.4",
+    "ext-pdo": "*",
+    "ext-pdo_pgsql": "*",
+    "ext-sodium": "*",
+    "symfony/console": "7.4.*",
+    "symfony/dotenv": "7.4.*",
+    "symfony/framework-bundle": "7.4.*",
+    "symfony/http-client": "7.4.*",
+    "symfony/lock": "7.4.*",
+    "symfony/mailer": "7.4.*",
+    "symfony/password-hasher": "7.4.*",
+    "symfony/rate-limiter": "7.4.*"
+  },
+  "autoload": {"psr-4": {"App\\": "src/"}},
+  "config": {"sort-packages": true, "allow-plugins": false}
+}

@@ -1,0 +1,13 @@
+CREATE TABLE users (id UUID PRIMARY KEY, username VARCHAR(32) NOT NULL, email VARCHAR(254) NOT NULL,password_hash TEXT NOT NULL,legacy_owner BOOLEAN NOT NULL DEFAULT false,created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX users_username ON users(lower(username));
+CREATE UNIQUE INDEX users_email ON users(lower(email));
+CREATE UNIQUE INDEX one_legacy_owner ON users(legacy_owner) WHERE legacy_owner;
+CREATE TABLE sessions (id UUID PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,access_hash CHAR(64) UNIQUE NOT NULL,refresh_hash CHAR(64) UNIQUE NOT NULL,access_expires TIMESTAMPTZ NOT NULL,refresh_expires TIMESTAMPTZ NOT NULL);
+CREATE TABLE password_resets (token_hash CHAR(64) PRIMARY KEY,user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires_at TIMESTAMPTZ NOT NULL);
+CREATE TABLE auth_limits(id TEXT PRIMARY KEY,state TEXT NOT NULL,expires_at TIMESTAMPTZ NOT NULL);
+ALTER TABLE trails ADD COLUMN owner_id UUID REFERENCES users(id);
+ALTER TABLE receipts ADD COLUMN owner_id UUID REFERENCES users(id);
+ALTER TABLE receipts DROP CONSTRAINT receipts_pkey;
+CREATE UNIQUE INDEX receipts_owner_operation ON receipts(owner_id,operation_id) NULLS NOT DISTINCT;
+CREATE INDEX trails_owner ON trails(owner_id);
+CREATE TABLE mail_outbox(id BIGSERIAL PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, encrypted_payload TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_attempt TIMESTAMPTZ NOT NULL DEFAULT now(), delivered_at TIMESTAMPTZ);

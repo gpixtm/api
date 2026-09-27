@@ -1,0 +1,13 @@
+vendor
+var
+.env
+data
+backups
+dist
+tools
+docs
+compose*.yaml
+Makefile
+.git
+.github
+.env.*

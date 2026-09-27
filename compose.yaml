@@ -1,0 +1,56 @@
+name: gpix
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gpix
+      POSTGRES_USER: gpix
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Run make install}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U gpix -d gpix']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: ${DB_PASSWORD:?Run make install}
+      APP_SECRET: ${APP_SECRET:?Run make install}
+      MAILER_DSN: ${MAILER_DSN:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      ELEVATION_URL: ${ELEVATION_URL:-}
+      ROUTING_URL: ${ROUTING_URL:-https://valhalla1.openstreetmap.de/route}
+    ports:
+      - '127.0.0.1:${HTTP_PORT:-8080}:80'
+    volumes:
+      - ./data/maps:/data/maps:ro
+    healthcheck:
+      test: [CMD, php, -r, "exit(@file_get_contents('http://localhost/health') === false ? 1 : 0);"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  mail-worker:
+    build: .
+    restart: unless-stopped
+    command: [php, bin/mail-worker.php]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: ${DB_PASSWORD:?Run make install}
+      APP_SECRET: ${APP_SECRET:?Run make install}
+      MAILER_DSN: ${MAILER_DSN:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+
+volumes:
+  database:
+    name: gpix_database

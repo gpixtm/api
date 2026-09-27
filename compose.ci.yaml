@@ -1,0 +1,29 @@
+name: gpix-ci
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: gpix
+      POSTGRES_USER: gpix
+      POSTGRES_PASSWORD: ci-only-not-a-production-secret
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U gpix -d gpix']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    build: .
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: ci-only-not-a-production-secret
+      APP_SECRET: ci-only-012345678901234567890123456789
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, php, bin/health.php]
+      interval: 3s
+      timeout: 5s
+      retries: 30

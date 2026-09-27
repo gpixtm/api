@@ -1,0 +1,185 @@
+{
+  "trip": {
+    "locations": [
+      {
+        "type": "break",
+        "lat": 49.254,
+        "lon": 4.03,
+        "side_of_street": "left",
+        "original_index": 0
+      },
+      {
+        "type": "break",
+        "lat": 49.256,
+        "lon": 4.034,
+        "side_of_street": "right",
+        "original_index": 1
+      }
+    ],
+    "legs": [
+      {
+        "maneuvers": [
+          {
+            "type": 3,
+            "instruction": "Marchez vers le nord-est sur Rue de Vesle.",
+            "verbal_succinct_transition_instruction": "Marchez vers le nord-est.",
+            "verbal_pre_transition_instruction": "Marchez vers le nord-est sur Rue de Vesle.",
+            "verbal_post_transition_instruction": "Continuez pendant 200 mètres.",
+            "street_names": [
+              "Rue de Vesle"
+            ],
+            "bearing_after": 61,
+            "time": 135.912,
+            "length": 0.175,
+            "cost": 143.157,
+            "begin_shape_index": 0,
+            "end_shape_index": 13,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          },
+          {
+            "type": 8,
+            "instruction": "Continuez sur Rue Carnot.",
+            "verbal_transition_alert_instruction": "Continuez sur Rue Carnot.",
+            "verbal_pre_transition_instruction": "Continuez sur Rue Carnot.",
+            "verbal_post_transition_instruction": "Continuez pendant 100 mètres.",
+            "street_names": [
+              "Rue Carnot"
+            ],
+            "bearing_before": 50,
+            "bearing_after": 60,
+            "time": 105.27,
+            "length": 0.146,
+            "cost": 110.27,
+            "begin_shape_index": 13,
+            "end_shape_index": 29,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          },
+          {
+            "type": 15,
+            "instruction": "Tournez à gauche dans Place Royale.",
+            "verbal_transition_alert_instruction": "Tournez à gauche dans Place Royale.",
+            "verbal_succinct_transition_instruction": "Tournez à gauche.",
+            "verbal_pre_transition_instruction": "Tournez à gauche dans Place Royale.",
+            "verbal_post_transition_instruction": "Continuez pendant 30 mètres.",
+            "street_names": [
+              "Place Royale"
+            ],
+            "bearing_before": 60,
+            "bearing_after": 357,
+            "time": 20.131,
+            "length": 0.031,
+            "cost": 25.131,
+            "begin_shape_index": 29,
+            "end_shape_index": 34,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          },
+          {
+            "type": 15,
+            "instruction": "Tournez à gauche dans Rue Colbert.",
+            "verbal_transition_alert_instruction": "Tournez à gauche dans Rue Colbert.",
+            "verbal_succinct_transition_instruction": "Tournez à gauche.",
+            "verbal_pre_transition_instruction": "Tournez à gauche dans Rue Colbert.",
+            "verbal_post_transition_instruction": "Continuez pendant 60 mètres.",
+            "street_names": [
+              "Rue Colbert"
+            ],
+            "bearing_before": 39,
+            "bearing_after": 327,
+            "time": 43.764,
+            "length": 0.061,
+            "cost": 48.764,
+            "begin_shape_index": 34,
+            "end_shape_index": 41,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          },
+          {
+            "type": 10,
+            "instruction": "Tournez à droite dans l'allée.",
+            "verbal_transition_alert_instruction": "Tournez à droite dans l'allée.",
+            "verbal_succinct_transition_instruction": "Tournez à droite.",
+            "verbal_pre_transition_instruction": "Tournez à droite dans l'allée.",
+            "verbal_post_transition_instruction": "Continuez pendant 30 mètres.",
+            "bearing_before": 328,
+            "bearing_after": 58,
+            "time": 22.221,
+            "length": 0.033,
+            "cost": 27.221,
+            "begin_shape_index": 41,
+            "end_shape_index": 45,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          },
+          {
+            "type": 10,
+            "instruction": "Tournez à droite dans Rue Bеrtin.",
+            "verbal_transition_alert_instruction": "Tournez à droite dans Rue Bеrtin.",
+            "verbal_succinct_transition_instruction": "Tournez à droite.",
+            "verbal_pre_transition_instruction": "Tournez à droite dans Rue Bеrtin.",
+            "verbal_post_transition_instruction": "Continuez pendant 30 mètres.",
+            "street_names": [
+              "Rue Bеrtin"
+            ],
+            "bearing_before": 61,
+            "bearing_after": 147,
+            "time": 23.502,
+            "length": 0.03,
+            "cost": 628.502,
+            "begin_shape_index": 45,
+            "end_shape_index": 46,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          },
+          {
+            "type": 5,
+            "instruction": "Votre destination est sur la droite.",
+            "verbal_transition_alert_instruction": "Votre destination sera sur la droite.",
+            "verbal_pre_transition_instruction": "Votre destination est sur la droite.",
+            "bearing_before": 147,
+            "time": 0.0,
+            "length": 0.0,
+            "cost": 0.0,
+            "begin_shape_index": 46,
+            "end_shape_index": 46,
+            "travel_mode": "pedestrian",
+            "travel_type": "foot"
+          }
+        ],
+        "summary": {
+          "has_time_restrictions": false,
+          "has_toll": false,
+          "has_highway": false,
+          "has_ferry": false,
+          "min_lat": 49.253938,
+          "min_lon": 4.030052,
+          "max_lat": 49.256282,
+          "max_lon": 4.034129,
+          "time": 350.803,
+          "length": 0.479,
+          "cost": 983.047
+        },
+        "shape": "ebf}|Age~tFmBmHiA_FU{@}@kCu@sBmA_D{CmK}B_IgC_JiAeEcL{b@yCoHeEmJa@{AGSy@yCoBmHsAwEiIy\\YcAgEqOoCgJUcAc@iBqBmH]kAKa@]mA{@}CcBj@}ADyBw@uAmAsAaDoDjDUTeB`BcAbAkIbIoDfDs@r@w@iCw@_AcDmMa@}AhM_M"
+      }
+    ],
+    "summary": {
+      "has_time_restrictions": false,
+      "has_toll": false,
+      "has_highway": false,
+      "has_ferry": false,
+      "min_lat": 49.253938,
+      "min_lon": 4.030052,
+      "max_lat": 49.256282,
+      "max_lon": 4.034129,
+      "time": 350.803,
+      "length": 0.479,
+      "cost": 983.047
+    },
+    "status_message": "Found route between points",
+    "status": 0,
+    "units": "kilometers",
+    "language": "fr-FR"
+  }
+}

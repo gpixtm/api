@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+vendor/
+var/
+data/
+backups/
+dist/
+*.part
+*.pem
+*.key
+.DS_Store

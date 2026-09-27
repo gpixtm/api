@@ -1,0 +1,15 @@
+# Local mail capture only. Does not change the API's loopback publication.
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31.2
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8025:8025'
+  api:
+    environment:
+      MAILER_DSN: smtp://mailpit:1025
+      MAIL_FROM: gpix@localhost.test
+  mail-worker:
+    environment:
+      MAILER_DSN: smtp://mailpit:1025
+      MAIL_FROM: gpix@localhost.test
