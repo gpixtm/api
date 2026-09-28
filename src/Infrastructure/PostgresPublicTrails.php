@@ -40,20 +40,25 @@ final readonly class PostgresPublicTrails
             $taken->execute([$candidate]);
             if (!$taken->fetchColumn()) { $id = $candidate; break; }
         }
-        $this->db->prepare('INSERT INTO public_trails (id, fingerprint, name, description, segments, pois, estimated, outline, metres, south, west, north, east, author_id)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::boolean, ?::jsonb, ?, ?, ?, ?, ?, ?) ON CONFLICT (fingerprint) DO NOTHING')
+        $this->db->prepare('INSERT INTO public_trails (id, fingerprint, name, description, segments, pois, estimated, outline, metres, south, west, north, east, author_id, search_text)
+            VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?::boolean, ?::jsonb, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (fingerprint) DO NOTHING')
             ->execute([$id, $fingerprint, $payload['name'], $payload['description'] ?? '', json_encode($payload['segments'], JSON_THROW_ON_ERROR),
                 json_encode($payload['pois'] ?? [], JSON_THROW_ON_ERROR), ($payload['estimated'] ?? false) ? 'true' : 'false',
-                json_encode($outline->lines, JSON_THROW_ON_ERROR), $outline->metres, $outline->south, $outline->west, $outline->north, $outline->east, $author]);
+                json_encode($outline->lines, JSON_THROW_ON_ERROR), $outline->metres, $outline->south, $outline->west, $outline->north, $outline->east, $author,
+                self::searchText($payload['name'])]);
         return $this->idFor($fingerprint);
     }
 
-    /** Catalogue entries changed after the phone's cursor, oldest change first. */
+    /**
+     * Walkers' shared trails changed after the phone's cursor, oldest change first. Kept for
+     * apps that still cache the catalogue; trails acquired from open data are browsed by area
+     * and search instead.
+     */
     public function index(int $since, int $limit = self::PAGE): array
     {
         $limit = max(1, min(self::PAGE, $limit));
-        $q = $this->db->prepare('SELECT p.id, p.fingerprint, p.name, p.metres, p.south, p.west, p.north, p.east, p.outline, p.reviews, p.rating_total, p.change, u.username
-            FROM public_trails p LEFT JOIN users u ON u.id = p.author_id WHERE p.change > ? ORDER BY p.change LIMIT ?');
+        $q = $this->db->prepare("SELECT p.id, p.fingerprint, p.name, p.metres, p.south, p.west, p.north, p.east, p.outline, p.reviews, p.rating_total, p.change, u.username
+            FROM public_trails p LEFT JOIN users u ON u.id = p.author_id WHERE p.change > ? AND p.source = 'gpix' ORDER BY p.change LIMIT ?");
         $q->execute([max(0, $since), $limit + 1]);
         $rows = $q->fetchAll(\PDO::FETCH_ASSOC);
         $more = count($rows) > $limit;
@@ -72,17 +77,29 @@ final readonly class PostgresPublicTrails
         ];
     }
 
-    /** Full trail, downloaded once by a phone and then kept offline. */
+    /**
+     * Full trail in the mobile payload shape, with what the catalogue knows about it: source,
+     * licence and attribution, details from the source, length and rating. A trail withdrawn
+     * from its source (`hidden`) stays readable for the walks and copies referring to it.
+     */
     public function find(string $id): array
     {
         $trail = $this->trail($id);
+        $reviews = (int)$trail['reviews'];
         return [
             'id' => $trail['id'], 'name' => $trail['name'], 'description' => $trail['description'],
             'segments' => json_decode($trail['segments'], true, 512, JSON_THROW_ON_ERROR),
             'pois' => json_decode($trail['pois'], true, 512, JSON_THROW_ON_ERROR),
             'estimated' => (bool)$trail['estimated'], 'author' => $trail['username'], 'createdAt' => $trail['created'],
+            'source' => $trail['source'], 'licence' => $trail['licence'], 'attribution' => $trail['attribution'],
+            'details' => json_decode($trail['details'], true, 512, JSON_THROW_ON_ERROR) ?: new \stdClass(),
+            'metres' => round((float)$trail['metres'], 1), 'reviews' => $reviews, 'average' => self::average($reviews, (int)$trail['rating_total']),
+            'hidden' => (bool)$trail['hidden'], 'change' => (int)$trail['change'],
         ];
     }
+
+    /** Folded words a walker's trail is found by in the catalogue search. */
+    public static function searchText(string $name): string { return \App\Domain\Catalogue\CatalogueText::fold($name); }
 
     public function reviews(string $id): array
     {

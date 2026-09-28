@@ -6,7 +6,13 @@ ci:
 deploy:
 	sh tools/deploy.sh
 
-.PHONY: prod-reload prod-mail-test prod-status
+.PHONY: prod-reload prod-mail-test prod-status prod-catalogue-acquire prod-catalogue-runs prod-catalogue-rollback
+prod-catalogue-acquire:
+	sh tools/production.sh catalogue acquire "$(COUNTRY)"
+prod-catalogue-runs:
+	sh tools/production.sh catalogue runs
+prod-catalogue-rollback:
+	sh tools/production.sh catalogue rollback "$(RUN)"
 prod-reload:
 	sh tools/production.sh reload
 prod-mail-test:
@@ -48,10 +54,19 @@ test:
 	$(DC) exec -T api php tests/statistics_upgrade.php
 	$(DC) exec -T api php tests/public_trails.php
 	$(DC) exec -T api php tests/public_trails_upgrade.php
+	$(DC) exec -T api php tests/catalogue.php
+	$(DC) exec -T api php tests/catalogue_upgrade.php
 backup:
 	"$(SH)" tools/backup.sh
 restore:
 	"$(SH)" tools/restore.sh "$(FILE)"
+
+.PHONY: catalogue-acquire catalogue-runs
+# Development acquisition; FILE=/data/catalogue/<extract>.osm.pbf skips the download.
+catalogue-acquire:
+	$(DC) exec -T catalogue-worker php bin/catalogue.php acquire "$(COUNTRY)" --now $(if $(FILE),--file="$(FILE)")
+catalogue-runs:
+	$(DC) exec -T catalogue-worker php bin/catalogue.php runs
 
 .PHONY: fixtures mailpit
 fixtures:

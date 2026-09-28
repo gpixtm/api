@@ -39,7 +39,7 @@ final readonly class TrailOutline
     }
 
     /** Iterative Douglas-Peucker in a local metric projection; keeps both ends. */
-    private static function simplify(array $line, float $tolerance): array
+    public static function simplify(array $line, float $tolerance): array
     {
         $count = count($line);
         if ($count < 3) return $line;

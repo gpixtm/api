@@ -52,13 +52,13 @@ maintenance=0
 on_exit() {
   status=$?
   if [ "$status" -ne 0 ] && [ "$maintenance" = 1 ]; then
-    prod stop api mail-worker || true
+    prod stop api mail-worker catalogue-worker || true
     echo "Deployment failed. API/workers remain stopped; database and backups preserved in $root. See docs/PRODUCTION.md." >&2
   fi
 }
 trap on_exit EXIT
 maintenance=1
-prod stop api mail-worker
+prod stop api mail-worker catalogue-worker
 stamp=$(date -u +%Y%m%dT%H%M%SZ)-$revision
 prod exec -T db pg_dump -U gpix -d gpix -Fc > "$root/backups/$stamp.dump.part"
 mv "$root/backups/$stamp.dump.part" "$root/backups/$stamp.dump"
@@ -66,7 +66,7 @@ tar -czf "$root/backups/$stamp-shared.tar.gz.part" -C "$root" shared
 mv "$root/backups/$stamp-shared.tar.gz.part" "$root/backups/$stamp-shared.tar.gz"
 # Migrations are transactional and take a PostgreSQL advisory lock.
 prod run --rm --no-deps api php bin/migrate.php
-prod up -d --wait --wait-timeout 180 --no-build --no-deps api mail-worker
+prod up -d --wait --wait-timeout 180 --no-build --no-deps api mail-worker catalogue-worker
 prod exec -T api php bin/health.php
 ln -sfn "$release" "$root/current.next"
 mv -Tf "$root/current.next" "$root/current"

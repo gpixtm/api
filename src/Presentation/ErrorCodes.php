@@ -32,6 +32,13 @@ final class ErrorCodes
             'Invalid place' => 'invalidPlace',
             'Place too far from the trail' => 'placeTooFar',
             'Only its author can change this place.' => 'placeNotYours',
+            'Invalid map area' => 'invalidMapArea',
+            'Search too long' => 'searchTooLong',
+            'Invalid group' => 'invalidGroup',
+            'Unknown group member' => 'unknownGroupMember',
+            'A group cannot contain itself' => 'groupContainsItself',
+            'Only its author can change this group.' => 'groupNotYours',
+            'Invalid recording reference' => 'invalidRecordingReference',
             'Service unavailable or resource not found' => 'serviceUnavailable',
             default => 'invalidRequest',
         };

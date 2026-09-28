@@ -22,6 +22,8 @@ ci exec -T api php tests/run.php
 ci exec -T api php tests/statistics_upgrade.php
 ci exec -T api php tests/public_trails.php
 ci exec -T api php tests/public_trails_upgrade.php
+ci exec -T api php tests/catalogue.php
+ci exec -T api php tests/catalogue_upgrade.php
 ci exec -T api php tests/approach.php
 export COMPOSE_FILE=compose.ci.yaml
 export TEST_API_URL="http://$(ci port api 80)"

@@ -51,6 +51,21 @@ services:
       MAILER_DSN: ${MAILER_DSN:-}
       MAIL_FROM: ${MAIL_FROM:-}
 
+  catalogue-worker:
+    build: .
+    restart: unless-stopped
+    command: [php, bin/catalogue.php, work]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: ${DB_PASSWORD:?Run make install}
+      APP_SECRET: ${APP_SECRET:?Run make install}
+      CATALOGUE_DIR: /data/catalogue
+    volumes:
+      - ./data/catalogue:/data/catalogue
+
 volumes:
   database:
     name: gpix_database

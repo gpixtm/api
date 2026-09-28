@@ -1,5 +1,7 @@
 # Shared trails and reviews
 
+Trails acquired from open data, groups, area browsing and search are described in [the catalogue guide](CATALOGUE.md).
+
 Every trail added by any account is stored once and visible to every account. This follows the product decision of 28 September 2026. What stays private to the owner:
 
 - walks, speeds and statistics;

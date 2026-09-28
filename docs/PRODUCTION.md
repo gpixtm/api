@@ -80,9 +80,11 @@ cd /srv/gpix/current
 export GPIX_RELEASE=$(cat /srv/gpix/deployed-revision)
 export GPIX_SHARED_DIR=/srv/gpix/shared
 docker compose --env-file "$GPIX_SHARED_DIR/.env" -f compose.prod.yaml ps
-docker compose --env-file "$GPIX_SHARED_DIR/.env" -f compose.prod.yaml logs --tail=100 api mail-worker
+docker compose --env-file "$GPIX_SHARED_DIR/.env" -f compose.prod.yaml logs --tail=100 api mail-worker catalogue-worker
 systemctl --user status gpix-actions-runner
 ```
+
+The `catalogue-worker` service acquires open-data trails. From `/srv/gpix/current`, `make prod-catalogue-acquire COUNTRY=FR` queues a whole country, `make prod-catalogue-runs` shows progress and statistics, and `make prod-catalogue-rollback RUN=<id>` hides what a run created. Extracts go to `CATALOGUE_STORAGE` (default `/srv/gpix/catalogue`, the storage disk), never the root disk. Acquired countries are refreshed every night. A deployment stops the worker; an interrupted run is retried the next night. See [the catalogue guide](CATALOGUE.md).
 
 A build failure leaves the previous version running. Failure during migration/startup leaves API/worker stopped and data preserved; CI fails and `current` remains on the last successful release. Diagnose job logs, correct and rerun/push only within the approved delivery. Successful migrations are not replayed; a failing SQL migration rolls back its transaction.
 

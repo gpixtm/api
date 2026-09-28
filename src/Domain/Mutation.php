@@ -87,6 +87,20 @@ final readonly class Mutation
         // Route a free walk created or matched; absent in payloads from older apps.
         $route = $walk['routeId'] ?? null;
         if ($route !== null && (!is_string($route) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $route))) throw new \InvalidArgumentException('Invalid recording route');
+        // The followed trail's simplified line, so history shows it even without the trail.
+        if (isset($walk['reference'])) {
+            $reference = $walk['reference'];
+            if (!is_array($reference) || !is_string($reference['name'] ?? null) || strlen($reference['name']) > 1000 || !is_array($reference['segments'] ?? null) || !array_is_list($reference['segments'])) {
+                throw new \InvalidArgumentException('Invalid recording reference');
+            }
+            self::validateText($reference['name']);
+            $points = 0;
+            foreach ($reference['segments'] as $segment) {
+                if (!is_array($segment) || !array_is_list($segment)) throw new \InvalidArgumentException('Invalid recording reference');
+                foreach ($segment as $point) { self::validatePoint($point); ++$points; }
+            }
+            if ($points > 20000) throw new \InvalidArgumentException('Invalid recording reference');
+        }
         $samples = $walk['samples'] ?? [];
         if (!is_array($samples) || !array_is_list($samples) || count($samples) > 500000) throw new \InvalidArgumentException('Invalid recording samples');
         $previous = $start - 15;
