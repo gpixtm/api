@@ -6,7 +6,7 @@ Future<void> main(List<String> args) async {
   final mobile = Directory('${root.parent.path}/mobile');
   if (!mobile.existsSync()) {
     stderr.writeln(
-      'Les commandes Dev mobile nécessitent le projet complet, avec mobile/ et .tooling/ à côté de backend/. Pour le serveur autonome : make install ou make up.',
+      'Mobile Dev commands require the complete workspace, with mobile/ and .tooling/ alongside backend/. For the standalone server: make install or make up.',
     );
     exitCode = 1;
     return;
@@ -19,7 +19,7 @@ Future<void> main(List<String> args) async {
   }
   if (args.singleOrNull == 'init') {
     stdout.writeln(
-      'Configurations locales prêtes. Renseignez API_URL dans mobile/config/dev.local.json et prod.local.json. Aucun fichier existant remplacé.',
+      'Local configuration ready. Set API_URL in mobile/config/dev.local.json and prod.local.json. Existing files were preserved.',
     );
     return;
   }
@@ -39,7 +39,7 @@ Future<void> main(List<String> args) async {
         uri.port > 65535 ||
         (uri.path.isNotEmpty && uri.path != '/')) {
       throw StateError(
-        'make dev attend http://IP_LAN_DU_PC:PORT sans chemin. HTTPS relève de votre reverse proxy.',
+        'make dev requires http://COMPUTER_LAN_IP:PORT without a path. HTTPS belongs to your reverse proxy.',
       );
     }
     final dockerArgs = [
@@ -70,7 +70,7 @@ Future<void> main(List<String> args) async {
       return;
     }
     dockerArgs.addAll(['up', '-d', '--wait']);
-    stdout.writeln('API Dev sur $url (interface LAN uniquement).');
+    stdout.writeln('Dev API at $url (LAN interface only).');
     final process = await Process.start(
       'docker',
       dockerArgs,
@@ -93,13 +93,13 @@ Future<void> main(List<String> args) async {
       }
       await response.drain<void>().timeout(const Duration(seconds: 5));
       stdout.writeln(
-        'API accessible depuis le PC. Vérifiez aussi /health depuis le Pixel.',
+        'API reachable from the computer. Also check /health from the phone.',
       );
     } catch (_) {
       stderr.writeln(
-        'Docker est démarré, mais $url/health est inaccessible depuis le PC. '
-        'Ce contrôle PC est indicatif : Docker Desktop peut limiter cet accès alors que le téléphone atteint le serveur. '
-        'Vérifiez /health depuis le téléphone. make dev-off rétablit le loopback.',
+        'Docker is running, but $url/health is unreachable from the computer. '
+        'This check is advisory: Docker Desktop can restrict this access while the phone reaches the server. '
+        'Check /health from the phone. make dev-off restores loopback.',
       );
       // A Windows host may not reach its own published LAN interface while
       // another device can. Compose health succeeded; this is advisory only.

@@ -3,6 +3,11 @@ declare(strict_types=1);
 namespace App\Domain;
 final readonly class Mutation
 {
+    private static function validateText(string $text): void {
+        if (preg_match('/\x{FFFD}|\x{00C3}[\x{0080}-\x{00BF}]|\x{00C2}[\x{0080}-\x{00BF}]|\x{00E2}\x{20AC}/u', $text)) {
+            throw new \InvalidArgumentException('Text contains a lost character. Correct its name or reimport the original GPX.');
+        }
+    }
     public function __construct(public string $id, public string $operationId, public int $baseRevision, public bool $deleted, public array $payload) {}
     public static function fromArray(array $data): self
     {
@@ -21,6 +26,9 @@ final readonly class Mutation
             throw new \InvalidArgumentException('Invalid trail payload');
         }
         $count = 0;
+        if (!$data['deleted']) {
+            foreach ([$p['name'], $p['description'] ?? ''] as $text) self::validateText($text);
+        }
         foreach ($p['segments'] as $segment) {
             if (!is_array($segment)) throw new \InvalidArgumentException('Invalid segment');
             foreach ($segment as $point) { self::validatePoint($point); ++$count; }
@@ -31,6 +39,9 @@ final readonly class Mutation
                 throw new \InvalidArgumentException('Invalid point of interest');
             }
             ++$count;
+            if (!$data['deleted']) {
+                self::validateText($poi['name']); self::validateText($poi['description']);
+            }
         }
         if ($count > 500000) throw new \InvalidArgumentException('Too many points');
         if (isset($p['walk'])) self::validateWalk($p['walk'], count($p['segments']));

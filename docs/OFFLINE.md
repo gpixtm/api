@@ -1,32 +1,29 @@
-# Paquets cartographiques
+# Offline map packages
 
-MapLibre GL 0.27.1 utilise `pmtiles://file:///…` pour les archives locales. Le style est un chemin absolu de fichier ; il ne doit pas recevoir un préfixe `file://` lui-même. Sources : [PMTiles Flutter](https://maplibre.org/flutter-maplibre-gl/advanced/pmtiles/), [ressources locales](https://maplibre.org/flutter-maplibre-gl/concepts/styles/#local-sprites-and-glyphs).
+This contract describes legacy self-hosted packages. The current mobile map also downloads OpenFreeMap areas automatically; package support remains compatible.
 
-## Construire un paquet
+MapLibre uses `pmtiles://file:///…` for local archives. The style itself is an absolute file path, without a `file://` prefix. References: [PMTiles](https://maplibre.org/flutter-maplibre-gl/advanced/pmtiles/), [local resources](https://maplibre.org/flutter-maplibre-gl/concepts/styles/#local-sprites-and-glyphs).
 
-Préparer une archive **PMTiles v3 vectorielle au schéma Protomaps** couvrant la région, par extraction d’un jeu dont la licence autorise cette distribution ou par génération OSM avec Planetiler. `.map` Mapsforge n’est pas compatible. Ne jamais précharger massivement `tile.openstreetmap.org`.
+## Building a package
 
-Python 3.11+ (bibliothèque standard), depuis `backend/` (ou `gpix-server/` après extraction) :
+Prepare a vector **PMTiles v3 archive using the Protomaps schema**, from appropriately licensed data or OSM through Planetiler. Mapsforge `.map` is incompatible. Never bulk-prefetch `tile.openstreetmap.org`.
+
+From the server root, with Python 3.11+ standard library:
 
 ```sh
-python3 tools/package_region.py \
-  --pmtiles /srv/source/region.pmtiles \
-  --id pays-basque --name 'Pays basque' --version 2026-09 \
-  --base-url https://rando.votre-domaine.fr --output data/maps
+python3 tools/package_region.py --pmtiles /srv/source/region.pmtiles --id basque-country --name 'Basque Country' --version 2026-09 --base-url https://hiking.example.org --output data/maps
 ```
 
-Le script crée un ZIP non recompressé (PMTiles contient déjà des tuiles compressées), le manifeste des fichiers SHA-256, puis publie atomiquement le catalogue avec taille, empreinte, version et enveloppe régionale. Vérifier que l’enveloppe PMTiles représente une zone intégralement préparée aux zooms utiles : une enveloppe ne prouve pas l’absence de trous dans le jeu amont. Le catalogue personnel est la source de vérité pour cette couverture. Les longs parcours traversant plusieurs enveloppes sont évalués par union, y compris les arêtes entre points GPX éloignés.
+The tool creates an uncompressed ZIP (tiles are already compressed), SHA-256 file manifest and atomically published catalog with size, digest, version and bounds. Verify full upstream coverage at useful zooms: bounds alone do not prove there are no holes. The personal catalog is the coverage source of truth. Long trails use the union of regions, including edges between distant GPX vertices.
 
-Le style par défaut est autonome : eau, bâtiments, routes et sentiers, sans texte/sprites. Pour un style plus complet, `--resources /srv/style` copie un arbre comprenant `style.json`, glyphes et sprites. Toutes les références doivent être `bundle://…`, par exemple `pmtiles://bundle://map.pmtiles` et `bundle://glyphs/{fontstack}/{range}.pbf`. Chaque police déclarée doit contenir les 256 plages BMP `0-255.pbf` à `65280-65535.pbf`. Sprites : `.json`, `.png`, `@2x.json`, `@2x.png`. Les régions à combiner doivent utiliser le même jeu de polices/sprites (la carte composée utilise ceux de la première région).
+The default style is self-contained water/buildings/roads/paths without labels or sprites. `--resources /srv/style` accepts a complete style/glyph/sprite tree. References must use `bundle://…`, for example `pmtiles://bundle://map.pmtiles` and `bundle://glyphs/{fontstack}/{range}.pbf`. Each declared font needs all 256 BMP ranges, `0-255.pbf` through `65280-65535.pbf`. Sprites include `.json`, `.png`, `@2x.json`, `@2x.png`. Combined regions need the same fonts/sprites; composition uses the first region's resources.
 
-Le ZIP contient `bundle.json` avec `files` (chemin relatif → SHA-256) et `fonts` (noms des répertoires de police). Aucun chemin parent, lien symbolique ou source réseau autorisé. Le téléphone télécharge vers `.part`, vérifie taille et hash, décompresse dans `.staging`, vérifie toutes les ressources et l’en-tête PMTiles, puis publie la version complète avant d’enregistrer sa disponibilité. Une interruption conserve l’ancienne version. Un téléchargement interrompu recommence depuis zéro à la prochaine tentative ; pas de reprise HTTP Range encore implémentée.
+`bundle.json` contains `files` (relative path → SHA-256) and `fonts` (font directories). Parent paths, symlinks and network sources are forbidden. Mobile downloads to `.part`, verifies size/hash, extracts into `.staging`, verifies all resources and the PMTiles header, then publishes the complete version before marking availability. Interruption preserves the prior version. Interrupted transfers restart; HTTP Range resume is not implemented.
 
-Les versions précédentes non référencées peuvent actuellement rester sur disque après une mise à jour : le nettoyage automatique de ces versions est à compléter. La suppression d’une carte active est disponible et signale les parcours concernés. Prévoir de la place pour téléchargement + extraction + ancienne version. L’application affiche les erreurs d’espace disque mais n’estime pas encore l’espace libre avant transfert.
+Old unreferenced versions can remain after updates; automatic cleanup is still incomplete. Removing an active map reports affected trails. Allow space for download, extraction and the prior version. Storage errors are shown, but free space is not pre-estimated.
 
-## Démonstration
+## Demonstration and elevations
 
-`mobile/assets/demo` fournit une archive réelle de Florence (~6,6 Mo), issue du dépôt officiel PMTiles/Protomaps, sous ODbL pour les données OSM. Son GPX et ses altitudes sont synthétiques, nommés « Démonstration ». Ce jeu ne représente pas Compostelle et ne doit pas servir de randonnée. Aucun fond de carte de production n’est présenté comme déjà préparé.
+The mobile repository's `assets/demo` contains a real Florence archive (about 6.6 MB) from official PMTiles/Protomaps samples with OSM ODbL attribution. Its GPX and elevations are synthetic UI fixtures, not a hiking route or prepared Camino map.
 
-## Altitudes
-
-Le profil GPX est conservé tel qu’importé, avec segments et lacunes. L’adaptateur de complément demande uniquement les altitudes manquantes au serveur configuré puis stocke le résultat localement, marqué estimé. Une lacune du DEM reste nulle. Aucun dénivelé cumulé potentiellement gonflé n’est affiché. Le lissage avancé et les courbes de niveau cartographiques ne sont pas livrés dans cette première version.
+Imported elevation profiles preserve segments and gaps. Only missing heights are requested from the configured server, then stored and marked estimated. DEM gaps stay null. Recorded-walk ascent/descent is derived from filtered GPS measurements; advanced terrain contours are not guaranteed by this package contract.

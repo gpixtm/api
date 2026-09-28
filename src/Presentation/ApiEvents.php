@@ -14,13 +14,14 @@ final class ApiEvents implements EventSubscriberInterface
     public function authenticate(RequestEvent $event): void {
         $this->owner->id=null;$request=$event->getRequest();
         if(in_array($request->getPathInfo(),['/health','/api/auth/register','/api/auth/login','/api/auth/refresh','/api/auth/logout','/api/auth/forgot-password','/api/auth/reset-password'],true))return;
-        $header=$request->headers->get('Authorization','');if(!str_starts_with($header,'Bearer '))throw new \Symfony\Component\HttpKernel\Exception\HttpException(401,'Connectez-vous pour continuer.');
+        $header=$request->headers->get('Authorization','');if(!str_starts_with($header,'Bearer '))throw new \Symfony\Component\HttpKernel\Exception\HttpException(401,'Sign in to continue.');
         $user=$this->auth->identify(substr($header,7));$this->owner->id=$user['id'];$request->attributes->set('user',$user);
     }
     public function error(ExceptionEvent $event): void
     {
         $e = $event->getThrowable();
         $status = $e instanceof \InvalidArgumentException ? 422 : ($e instanceof HttpExceptionInterface ? $e->getStatusCode() : 503);
-        $event->setResponse(new JsonResponse(['error' => in_array($status,[401,422,429],true) ? $e->getMessage() : 'Service indisponible ou ressource introuvable'], $status));
+        $message = in_array($status,[401,422,429],true) ? $e->getMessage() : 'Service unavailable or resource not found';
+        $event->setResponse(new JsonResponse(['error' => $message, 'code' => ErrorCodes::forMessage($message)], $status));
     }
 }

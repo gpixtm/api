@@ -13,10 +13,18 @@ $http = new MockHttpClient(function($method, $url, $options) use ($fixture) {
     return new MockResponse($fixture);
 });
 $service = new WalkingDirections($http);
-try { $service->route(['origin'=>[91,0], 'destination'=>[49,4]]); throw new RuntimeException('accepted invalid'); }
+try { $service->route(['language'=>'fr','origin'=>[91,0], 'destination'=>[49,4]]); throw new RuntimeException('accepted invalid'); }
 catch (InvalidArgumentException) { echo "PASS invalid coordinates rejected before network\n"; }
-$data=$service->route(['origin'=>[49.254,4.03],'destination'=>[49.256,4.034]]);
+$data=$service->route(['language'=>'fr','origin'=>[49.254,4.03],'destination'=>[49.256,4.034]]);
 verify(count($data['steps'])===7 && str_contains($data['steps'][2]['instruction'],'gauche'),'real French maneuvers retained');
 verify($data['seconds']>300 && strlen($data['shape'])>20,'route geometry and estimate returned');
-try { $service->route(['origin'=>[49.254,4.03],'destination'=>[49.256,4.034]]); throw new RuntimeException('no limit'); }
+try { $service->route(['language'=>'fr','origin'=>[49.254,4.03],'destination'=>[49.256,4.034]]); throw new RuntimeException('no limit'); }
 catch (Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException) { echo "PASS provider rate limit shared between requests\n"; }
+usleep(1100000);
+$english = new WalkingDirections(new MockHttpClient(function($method, $url, $options) use ($fixture) {
+    $body=json_decode($options['body'],true);
+    verify($body['language']==='en-US','English routing request');
+    return new MockResponse($fixture);
+}));
+$english->route(['language'=>'en','origin'=>[49.254,4.03],'destination'=>[49.256,4.034]]);
+verify(App\Presentation\ErrorCodes::forMessage('Incorrect username or password.')==='invalidCredentials','stable authentication error code');

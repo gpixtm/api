@@ -1,6 +1,8 @@
 # Production — api.example.org
 
-Le dépôt `https://github.com/gpixtm/api` contient uniquement le backend. Les pushes sur `develop` et les PR vers `main` sont testés sur un runner GitHub jetable. Chaque push sur `main` teste puis déploie le commit exact via le runner dédié `gpix-production`, installé chez `walker@192.0.2.10`. Un merge local de `develop` dans `main` suivi d'un push suffit, sans PR obligatoire. Une fusion via GitHub fonctionne aussi. Un lancement manuel depuis `main` reste disponible pour la reprise. Aucun accès SSH entrant depuis GitHub n'est nécessaire.
+The private `gpixtm/api` repository contains only the backend. Pushes to `develop` and PRs targeting `main` run tests on a disposable GitHub runner. Each `main` push tests and then deploys the exact commit on the dedicated `gpix-production` runner. Read [AGENTS.md](../AGENTS.md) and obtain the separate merge/deployment approval before this action. A local merge and push is sufficient; PRs are optional. Manual dispatch from `main` can resume a deployment. No inbound SSH from GitHub is needed.
+
+After approval and validation:
 
 ```sh
 git switch main
@@ -9,82 +11,69 @@ git merge develop
 git push origin main
 ```
 
-## Déploiement
+## Deployment and persistent data
 
-Le workflow appelle `make ci`, puis `make deploy`. Le dépôt doit rester privé et seuls les mainteneurs autorisés doivent pouvoir pousser sur `main` : ce runner dispose de Docker sur le serveur de production. Les PR ne déclenchent jamais le job de déploiement.
+The workflow runs `make ci`, then `make deploy`. Restrict `main` pushes to authorized maintainers: the deployment runner has Docker access on production. PRs never run the deployment job. CI uses disposable PostgreSQL and Mailpit, including HTTP reset requests, SMTP worker delivery, code receipt, expiry and single use; no CI email leaves that Docker network. Python 3 is required.
 
-La CI vérifie aussi par HTTP la demande de réinitialisation, l'envoi SMTP via le worker dans un Mailpit isolé, la réception du code et son usage unique/expiration. Aucun mail de test CI ne quitte ce réseau Docker. `make ci` nécessite Python 3 pour ces tests HTTP.
+The established SSH account is `walker` on the private host `192.0.2.10`; use the existing private local SSH configuration/key. The production directory is `/srv/gpix/`:
 
-`/srv/gpix/` contient :
+- `releases/<commit>/`: exact release sources.
+- `current`: last successfully deployed release.
+- `shared/.env`: secrets generated once, mode 600, never sent to GitHub.
+- `shared/maps/`: persistent map catalog/packages.
+- `backups/`: PostgreSQL dump and private secret/map archive before migration.
+- `deployed-revision`: active commit; `deploy.lock` prevents concurrent deployments.
 
-- `releases/<commit>/` : sources exactes de chaque version ;
-- `current` : lien vers la dernière version déployée avec succès ;
-- `shared/.env` : secrets générés une fois, mode 600, jamais transmis à GitHub ;
-- `shared/maps/` : catalogue et paquets de cartes persistants ;
-- `backups/` : dump PostgreSQL et archive des secrets/cartes avant chaque migration ;
-- `deployed-revision` : commit actif ; `deploy.lock` empêche deux déploiements simultanés.
+PostgreSQL uses external volume `gpix_prod_database`, which deployment and `compose down` preserve. Replacing application containers must not lose accounts, sessions or trails. Symfony caches belong to each new container.
 
-PostgreSQL utilise le volume Docker externe `gpix_prod_database`. Il n'est jamais supprimé par le déploiement ni par `compose down`. Les versions applicatives et les conteneurs peuvent être remplacés sans perdre comptes, sessions et randonnées. Les caches Symfony sont propres à chaque nouveau conteneur.
+Build dependencies with `composer install --no-dev` from `composer.lock`. Dependency updates are prepared, tested and committed in development, never resolved directly on production. Preserve readable extraction permissions (`tar -xpf`); applying a restrictive secret umask to code can cause Apache HTTP 403.
 
-Les dépendances sont installées lors du build avec `composer install --no-dev` depuis `composer.lock`. Pour changer de version, faire `composer update` en développement, tester et committer le lock ; ne jamais résoudre de nouvelles versions directement en production.
-
-Le build précède l'interruption du service. Ensuite : démarrage de la base si nécessaire, arrêt API/worker pour figer les écritures, sauvegarde, migrations SQL transactionnelles sous verrou, recréation API/worker et contrôle HTTP + base. Une brève indisponibilité est attendue pendant cette phase. Aucune fixture ni aucun test créant des utilisateurs n'est exécuté en production. La base de CI est jetable et distincte.
-
-Une base déjà démarrée n'est pas recréée à chaque livraison. Les mises à jour PostgreSQL (surtout les changements de version majeure) constituent une opération dédiée avec sauvegarde et procédure de migration, jamais un changement de tag improvisé.
+Build before interrupting service. Then preserve/start the existing database, stop API/worker writes, back up, run transactional migrations under lock, recreate API/worker and verify HTTP/database health. A short interruption is expected. Never load fixtures or test users on production. An already running database is not recreated for every delivery. PostgreSQL version upgrades, especially major versions, require a dedicated backup/migration procedure.
 
 ## Nginx Proxy Manager
 
-Le conteneur NPM existant est sur le réseau Docker `proxy`. Seule l'API rejoint ce réseau avec l'alias `gpix-api` ; PostgreSQL reste sur le réseau privé de la stack. Aucun port API n'est publié sur l'hôte.
+NPM uses Docker network `proxy`. Only the API joins it under alias `gpix-api`; PostgreSQL stays on the private stack network. No API/database host ports are published.
 
-1. Dans votre DNS, faire pointer `api.example.org` vers l'IP publique du serveur/routeur. Les ports publics TCP 80 et 443 doivent parvenir à NPM sur `192.0.2.10`.
-2. Ouvrir l'administration NPM : `http://192.0.2.10:81`.
-3. **Hosts → Proxy Hosts → Add Proxy Host** :
-   - Domain Names : `api.example.org`
-   - Scheme : `http`
-   - Forward Hostname / IP : `gpix-api`
-   - Forward Port : `80`
-   - Access List : `Publicly Accessible` (l'authentification est assurée par l'API)
-   - Cache Assets : désactivé ; Websockets : inutile.
-4. **Advanced** :
+1. Point DNS `api.example.org` to the public server/router address. Public TCP 80/443 must reach NPM on the configured private host.
+2. Open the existing NPM administration interface on port 81.
+3. Under Hosts → Proxy Hosts, configure domain `api.example.org`, scheme `http`, upstream `gpix-api`, port `80`, publicly accessible (the API authenticates requests), asset caching disabled and no websocket requirement.
+4. Add the following advanced settings:
 
-   ```nginx
-   client_max_body_size 50m;
-   proxy_read_timeout 120s;
-   proxy_send_timeout 120s;
-   ```
+```nginx
+client_max_body_size 50m;
+proxy_read_timeout 120s;
+proxy_send_timeout 120s;
+```
 
-5. **SSL → Request a new SSL Certificate** : choisir Let's Encrypt, accepter les conditions et activer **Force SSL** et **HTTP/2 Support**. Enregistrer.
-6. Vérifier `https://api.example.org/health` : réponse `{"status":"ok"}`. Un appel non authentifié à `/api/trails` doit retourner HTTP 401.
+5. Request the configured Let's Encrypt certificate and enable Force SSL and HTTP/2.
+6. Verify public HTTPS `/health` returns `{"status":"ok"}` and unauthenticated `/api/trails` returns 401.
 
-Si le réseau de NPM change, modifier `PROXY_NETWORK` dans `shared/.env`, puis redéployer. Ne pas utiliser `localhost` comme upstream NPM : il désignerait son propre conteneur.
+If the NPM network changes, update `PROXY_NETWORK` in `shared/.env` and redeploy. NPM `localhost` would refer to its own container, not the API. Distinguish internal proxy checks from public HTTPS checks.
 
-## SMTP et mobile
+## SMTP and mobile
 
-Configurer `MAILER_DSN` et `MAIL_FROM` dans `/srv/gpix/shared/.env` pour permettre les réinitialisations de mot de passe. Ne pas utiliser Mailpit en production. Sans SMTP, inscription et connexion restent possibles mais la récupération de mot de passe est indisponible. Redéployer après modification des variables.
+Configure `MAILER_DSN` and `MAIL_FROM` in `shared/.env`; preserve the existing sender and credentials. Production must not use Mailpit. Without SMTP, registration/login work but password recovery is unavailable. Apply changes to both API and worker using `make prod-reload`.
 
-Pour l'expéditeur retenu, `sender@example.org` :
+For Gmail, enable two-step verification where required and create an [app password](https://myaccount.google.com/apppasswords). The normal Google account password is unsuitable. If unavailable, check [Google's account restrictions](https://support.google.com/mail/answer/185833). Enter the 16-character app password without presentation spaces directly into the private server `.env`; never paste real credentials into tracked examples.
 
-1. Activer la validation en deux étapes du compte Google si nécessaire, puis ouvrir [Mots de passe des applications](https://myaccount.google.com/apppasswords). Créer un mot de passe pour « Gpix serveur ». Le mot de passe habituel du compte ne convient pas. Si cette option n'est pas disponible, vérifier les restrictions du compte dans [l'aide Google](https://support.google.com/mail/answer/185833?hl=fr).
-2. En SSH, `nano /srv/gpix/shared/.env`. Remplacer les lignes suivantes en insérant le mot de passe d'application de 16 caractères, sans espaces :
+```dotenv
+MAILER_DSN=smtps://sender%40example.com:APP_PASSWORD@smtp.example.org:465
+MAIL_FROM=sender@example.com
+```
 
-   ```dotenv
-   MAILER_DSN=smtps://sender%40example.org:MOT_DE_PASSE_APPLICATION@smtp.example.org:465
-   MAIL_FROM=sender@example.org
-   ```
+Use the actual configured account instead of these placeholders. Only when an explicit email test is requested, send to the agreed recipient:
 
-3. Appliquer la configuration aux deux conteneurs, puis envoyer explicitement un mail de test à sa propre boîte :
+```sh
+cd /srv/gpix/current
+make prod-reload
+make prod-mail-test TO=agreed-recipient@example.com
+```
 
-   ```sh
-   cd /srv/gpix/current
-   make prod-reload
-   make prod-mail-test TO=sender@example.org
-   ```
+SMTP acceptance is not proof of receipt: check the inbox and spam folder. Updates preserve `.env`. Reference: [Gmail SMTP with SSL on port 465](https://support.google.com/a/answer/176600).
 
-Le premier message confirme l'acceptation par SMTP ; vérifier aussi la réception dans Gmail, y compris les indésirables. Les identifiants restent exclusivement sur le serveur et les mises à jour ne remplacent pas `.env`. Référence : [SMTP Gmail, SSL sur le port 465](https://support.google.com/a/answer/176600).
+The mobile Prod profile uses `https://api.example.org` and no fixture prefill. Users create their own accounts. DNS and the certificate must work before debugging against this endpoint. Password-reset emails support English/French according to the request language.
 
-Le profil VS Code **Gpix · Prod** du projet mobile utilise `https://api.example.org`. Il ne préremplit aucun compte de fixture : créer son compte depuis l'application. Le DNS et le certificat doivent être opérationnels avant de lancer F5.
-
-## Exploitation et reprise
+## Operations and recovery
 
 ```sh
 cd /srv/gpix/current
@@ -95,12 +84,12 @@ docker compose --env-file "$GPIX_SHARED_DIR/.env" -f compose.prod.yaml logs --ta
 systemctl --user status gpix-actions-runner
 ```
 
-Après un échec du build, l'ancienne version continue de fonctionner. Après un échec pendant les migrations ou le démarrage, API et worker restent arrêtés : la CI échoue et les données sont conservées. Le lien `current` reste sur la dernière version réussie. Examiner les logs du job et corriger le code, puis pousser ou relancer le workflow. Les migrations déjà validées ne sont pas rejouées. Une migration SQL en échec est annulée avec la transaction entière.
+A build failure leaves the previous version running. Failure during migration/startup leaves API/worker stopped and data preserved; CI fails and `current` remains on the last successful release. Diagnose job logs, correct and rerun/push only within the approved delivery. Successful migrations are not replayed; a failing SQL migration rolls back its transaction.
 
-Ne pas restaurer automatiquement un ancien dump : cela pourrait perdre les écritures faites après une livraison. Si les migrations ont réussi, revenir à une ancienne image exige de vérifier sa compatibilité avec le schéma. Une restauration doit être vérifiée dans une base de récupération distincte avant toute bascule explicite.
+Never automatically restore an old dump: it can discard subsequent writes. After successful migrations, an older image may be schema-incompatible. Verify restoration in a separate recovery database before an explicitly authorized switch.
 
-Les sauvegardes locales ne protègent pas contre la perte du disque : copier régulièrement dumps et archives vers un stockage externe privé, puis tester une restauration. Leur rétention n'est pas automatique. Surveiller l'espace disque et supprimer seulement les anciennes sauvegardes/versions déjà archivées selon la durée de conservation souhaitée ; ne jamais lancer `docker system prune --volumes` sur ce serveur partagé.
+Local backups do not protect against disk loss. Copy dumps/private archives to external private storage and test restores. Retention is not automatic. Monitor disk space and remove only specifically identified, already archived old releases/backups according to the intended retention policy. Never run global `docker system prune --volumes` on this shared host.
 
-Le runner est un service systemd utilisateur `gpix-actions-runner` et le compte dispose de `Linger=yes`, ce qui permet son démarrage au boot sans session SSH. Pour une nouvelle installation, `tools/setup-runner.sh` lit sur stdin un jeton d'enregistrement GitHub de courte durée et vérifie le SHA-256 de l'archive officielle. Aucun jeton personnel ni aucune clé SSH n'est conservé dans le dépôt.
+The user systemd service `gpix-actions-runner` uses `Linger=yes` to start without SSH login. For a new installation, `tools/setup-runner.sh` reads a short-lived GitHub registration token from stdin and verifies the official archive SHA-256. Do not keep personal tokens or private SSH keys in the repository.
 
-Références : [runners GitHub](https://docs.github.com/en/actions/concepts/runners/self-hosted-runners), [Composer et composer.lock](https://getcomposer.org/doc/01-basic-usage.md), [réseaux Docker avec NPM](https://nginxproxymanager.com/advanced-config/).
+References: [GitHub runners](https://docs.github.com/en/actions/concepts/runners/self-hosted-runners), [Composer lockfiles](https://getcomposer.org/doc/01-basic-usage.md), [NPM Docker networks](https://nginxproxymanager.com/advanced-config/).

@@ -1,10 +1,8 @@
-# Serveur Gpix
+# Gpix API
 
-Production `https://api.example.org` : [CI, déploiement, Nginx Proxy Manager et sauvegardes](docs/PRODUCTION.md). Le dépôt GitHub `gpixtm/api` a ce dossier pour racine ; chaque push sur `main` déclenche les tests puis le déploiement (merge local de `develop` + push ou fusion d'une PR).
+Independent Symfony/PostgreSQL backend repository: `gpixtm/api`. Read [AGENTS.md](AGENTS.md) for English-code rules and the develop → commit approval → main merge approval → push/deployment workflow. The [production guide](docs/PRODUCTION.md) describes CI, Nginx Proxy Manager and backups for `https://api.example.org`.
 
-Ce dossier contient toute la stack API Symfony/PostgreSQL : configuration Compose, Makefile, secrets locaux, scripts, cartes serveur, sauvegardes et documentation d’exploitation.
-
-Depuis ce dossier :
+From this directory:
 
 ```sh
 make install
@@ -12,12 +10,8 @@ make up
 make test
 ```
 
-Lire [INSTALL.md](INSTALL.md) pour les prérequis, HTTPS, données cartographiques et sauvegardes. `.env` est privé et n’est jamais inclus dans l’archive produite par `python tools/bundle_server.py`. Les fichiers livrables sont dans `dist/`.
+See [INSTALL.md](INSTALL.md) for prerequisites, HTTPS, map packages and recovery. The standalone server needs neither the mobile repository nor Flutter. `python tools/bundle_server.py` produces an explicit-allowlist archive in `dist/`, excluding live `.env`, data and backups.
 
-La stack conserve l’identité Compose `gpix` et le volume `gpix_database`. La publication de base reste `127.0.0.1:8080`. Ne pas lancer en parallèle une autre copie de cette stack sur le même hôte.
+Development keeps Compose identity `gpix`, volume `gpix_database` and default binding `127.0.0.1:8080`. Do not run competing copies on one host. Optional full-workspace mobile commands `make debug-config` and `make dev` use sibling `../mobile` and `../.tooling/flutter`; `make dev-off` restores loopback.
 
-Les commandes de développement mobile `make debug-config` / `make dev` utilisent le SDK `../.tooling/flutter` et `../mobile/config/dev.local.json` dans le projet complet. Le serveur autonome n’en dépend pas pour son exploitation. `make dev-off` revient au loopback.
-
-Structure : `src/`, `bin/`, `migrations/`, `public/`, `tests/`, `docker/`, `tools/`, `docs/`, `data/maps/`, `backups/`, `dist/` et `.env`. Les données privées et sauvegardes sont exclues du contexte Docker et de l’archive.
-
-Connexion email/username et mot de passe. `make fixtures` initialise explicitement le compte personnel dans le conteneur API, sans purge ; `make mailpit` active la capture locale. Voir [contrat auth](docs/AUTH.md).
+Sign in with username/email and password. Fixtures are explicit and development-only; `make mailpit` captures development emails locally. Read [authentication](docs/AUTH.md) for stable error codes, sessions and localized reset emails. Private files, maps, backups and generated artifacts stay outside Git and Docker build contexts.

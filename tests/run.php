@@ -8,13 +8,21 @@ use App\Infrastructure\PostgresTrailStore;
 function check(bool $condition, string $label): void { if (!$condition) throw new RuntimeException($label); echo "PASS $label\n"; }
 function uuid(): string { $h=bin2hex(random_bytes(16)); return substr($h,0,8).'-'.substr($h,8,4).'-'.substr($h,12,4).'-'.substr($h,16,4).'-'.substr($h,20); }
 $db=Database::connect(); $accounts=new App\Infrastructure\Accounts($db); $session=$accounts->register(['username'=>'test_'.bin2hex(random_bytes(6)),'email'=>bin2hex(random_bytes(6)).'@example.test','password'=>'Testing123']);$owner=new App\Infrastructure\OwnerContext();$owner->id=$session['user']['id'];$store=new PostgresTrailStore($db,$owner); $id=uuid(); $op=uuid();
-$payload=['id'=>$id,'name'=>'Test isolated '. $id,'segments'=>[[[43.0,-1.0,100],[43.01,-1.01,null]]],'pois'=>[], 'days'=>[[0, 500], [500, 1000]]];
+$payload=['id'=>$id,'name'=>'Été — Hébergements '. $id,'segments'=>[[[43.0,-1.0,100],[43.01,-1.01,null]]],'pois'=>[['point'=>[43.0,-1.0,null],'name'=>'Église où dormir ? 🥾','description'=>'À côté : cœur, forêt, São, 東京.']], 'days'=>[[0, 500], [500, 1000]]];
 $request=['id'=>$id,'mutation'=>$op,'baseRevision'=>0,'deleted'=>false,'payload'=>$payload];
 try {
     $m=Mutation::fromArray($request);
     check($store->apply($m)===['conflict'=>false,'revision'=>1],'first mutation');
     $restored=array_values(array_filter((new PostgresTrailStore(Database::connect(),$owner))->all(),fn($r)=>$r['id']===$id));
     check($restored[0]['payload']['days']===$payload['days'],'walking days restored from API storage on a new connection');
+    check($restored[0]['payload']['name']===$payload['name'] && $restored[0]['payload']['pois'][0]['name']===$payload['pois'][0]['name'] && $restored[0]['payload']['pois'][0]['description']===$payload['pois'][0]['description'],'Unicode names and descriptions preserved by PostgreSQL');
+    foreach (['name','poi','mojibake'] as $field) {
+        $invalid=$request;
+        if($field==='name')$invalid['payload']['name']="H\u{FFFD}bergements";
+        elseif($field==='mojibake')$invalid['payload']['name']="H\u{00C3}\u{00A9}bergements";
+        else $invalid['payload']['pois'][0]['description']="For\u{FFFD}t";
+        try { Mutation::fromArray($invalid); throw new RuntimeException('accepted damaged text'); } catch (InvalidArgumentException) { echo "PASS damaged text rejected before persistence\n"; }
+    }
     foreach ([[[0, 9999999]], [[0, 0]], [['0', 50]], [[-1, 50]]] as $days) {
         $invalid=$request; $invalid['payload']['days']=$days;
         try { Mutation::fromArray($invalid); throw new RuntimeException('accepted invalid walking day'); } catch (InvalidArgumentException) { echo "PASS walking day validation\n"; }

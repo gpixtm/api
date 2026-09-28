@@ -1,94 +1,64 @@
-# Installation du serveur Gpix
+# Installing the Gpix server
 
-Le guidage piéton vers le point le plus proche du GPX utilise `POST /api/approach`, authentifié. `ROUTING_URL` dans `.env` configure une API Valhalla `/route` : par défaut `https://valhalla1.openstreetmap.de/route`, service public pour les essais et un faible volume. Prévoir une instance dédiée avant un déploiement à grande échelle. Les coordonnées de position et de jonction sont transmises au fournisseur configuré. Une demande par seconde au maximum sur l’instance API ; recalculs explicites. Après modification, redémarrer avec la commande adaptée à l’environnement (`make dev` conserve la publication LAN).
+This guide covers the standalone/development Compose stack. For the existing production service, use [production operations](docs/PRODUCTION.md) and [agent instructions](AGENTS.md), including approval and data-preservation rules.
 
-## Prérequis
+## Requirements and installation
 
-Linux avec Docker Engine, plugin **Docker Compose v2** récent (`--wait`), GNU Make, shell POSIX et utilitaires `od`, `tr`, `grep`, `tar`. Accès réseau aux registres Docker/Composer pendant construction. Architecture x86_64 testée via Docker Desktop avec conteneurs Linux ; arm64 utilise les images multiarchitectures mais n’a pas été testée. Prévoir au moins 2 Go de RAM pour la petite API/BDD, 4 Go recommandés pour construction, et de l’espace supplémentaire pour vos régions et sauvegardes. Les gros traitements cartographiques/DEM ont des besoins propres, non mesurés ici.
-
-## Démarrage rapide
-
-Extraire l’archive dans un dossier, puis :
+Linux, Docker Engine, recent Docker Compose v2 with `--wait`, GNU Make, a POSIX shell, `od`, `tr`, `grep` and `tar`. Build access to Docker/Composer registries is required. Linux containers on x86_64 Docker Desktop have been tested; arm64 images are available but unverified. Allow at least 2 GB RAM (4 GB recommended for builds), plus map/backup storage. Large map/DEM preparation needs separate sizing.
 
 ```sh
-cd gpix-server
+cd gpix-server # or backend/ in the full workspace
 make install
 make test
 ```
 
-Dans le projet complet, utiliser `cd backend` à la place de `cd gpix-server`. Toutes les commandes serveur de ce guide s’exécutent dans ce dossier. Le fichier réel est `backend/.env`, les cartes `backend/data/maps`, les sauvegardes `backend/backups`. L’archive extraite est autonome : elle ne nécessite ni dossier mobile ni SDK Flutter pour installer, tester ou exploiter l’API.
+Run server commands from this directory. Private configuration is `.env`, maps are `data/maps/`, backups are `backups/`. The archive is autonomous and does not need Flutter. Scripts run with `sh` and use LF line endings. On Windows, Make and Docker must be on PATH; the Makefile uses Git Bash at `C:/Program Files/Git/bin/sh.exe`. Override `SH` when installed elsewhere.
 
-Les scripts sont appelés avec `sh` : aucun bit exécutable n’est nécessaire. Ils sont fournis avec fins de ligne LF.
+`make install` generates two random internal secrets only when `.env` does not exist, builds, waits for PostgreSQL TCP, migrates, then waits for the API. Compose identity is `gpix`, database volume `gpix_database`. Re-running preserves data and secrets. An existing volume without `.env` stops installation: restore the original configuration. Do not run competing copies under the same identity on one host.
 
-Sous Windows, GNU Make et Docker doivent être dans le PATH. Le Makefile sélectionne Git Bash à `C:/Program Files/Git/bin/sh.exe` pour les scripts POSIX ; si Git est installé ailleurs, préciser `make install SH="chemin/vers/sh.exe"` (idem pour backup/restore). Les commandes Dev sélectionnent le SDK Dart isolé `../.tooling/flutter`.
+Default binding is `127.0.0.1:8080`. Use email/username and password, not a personal API key. Keep `DB_PASSWORD` and `APP_SECRET` at least 32 characters and private. Mobile sessions use Android secure storage; libraries are account-private.
 
-`make install` génère `.env` avec deux secrets internes aléatoires **uniquement s’il n’existe pas**, construit l’image, attend PostgreSQL sur TCP, applique les migrations puis attend l’API. Le projet Compose s’appelle `gpix`, le volume `gpix_database`. Une seconde exécution conserve les données et secrets. Si un volume existe sans `.env`, l’installation s’arrête : restaurer le fichier original. Ne pas lancer cette stack dans deux dossiers concurrents sur le même hôte : leur identité est volontairement stable.
+## HTTPS and LAN
 
-L’API écoute par défaut **127.0.0.1:8080**. Connexion par email ou username et mot de passe ; aucune clé personnelle. `DB_PASSWORD` et `APP_SECRET` gardent leur minimum de 32 caractères. Ne pas partager `.env`. Les sessions sont stockées dans le stockage sécurisé Android. Les bibliothèques sont privées par compte.
+For the optional standalone Caddy gateway, point a DNS name to the host, provide ports 80/443, set `SERVER_NAME=hiking.example.org`, then run `make https`. Caddy stores certificates persistently. This alternative has not been field-deployed; an existing HTTPS proxy forwarding to loopback also works. Mobile Prod requires HTTPS; Dev permits HTTP only on private IPv4.
 
-## HTTPS pour le téléphone
+Full-workspace commands `make debug-config` / `make dev` require sibling `../mobile` and `../.tooling/flutter`. `make dev` reads `../mobile/config/dev.local.json`, publishes on that explicit LAN interface and prepares Mailpit; `make dev-off` restores loopback. No tunnel is required. Verify `/health` from the phone, not solely the host's own LAN address.
 
-Option intégrée : disposer d’un nom DNS pointant vers le serveur et rendre les ports 80/443 disponibles. Renseigner `SERVER_NAME=rando.votre-domaine.fr` dans `.env`, puis :
+## Commands and recovery
 
-```sh
-make https
-```
-
-Caddy termine TLS et gère les certificats dans des volumes persistants. Le téléphone utilise `https://rando.votre-domaine.fr`, avec sa connexion utilisateur. Cette option n’a pas été déployée sur un domaine réel. Un reverse proxy HTTPS déjà présent convient aussi vers `127.0.0.1:8080`. Le profil mobile Prod impose HTTPS ; Dev accepte HTTP sur une IPv4 privée.
-
-## Commandes
-
-Pour le test mobile sur le réseau local, les commandes optionnelles `make debug-config` et `make dev` nécessitent le projet complet avec `../mobile` et `../.tooling/flutter`. Le guide est `mobile/docs/DEBUG-VSCODE.md` dans ce projet. `make dev` lit `../mobile/config/dev.local.json` et applique l’override LAN explicite ; `make dev-off` rétablit le loopback. Cela ne change pas la publication de production par défaut.
-
-| Commande | Effet |
+| Command | Purpose |
 | --- | --- |
-| `make up` | Démarrer API/BDD et worker avec la configuration `.env` |
-| `make fixtures` | Ajouter explicitement le compte personnel dans le conteneur API, sans purge |
-| `make mailpit` | Démarrer API/worker avec SMTP de capture local et Mailpit sur loopback |
-| `make down` | Arrêter sans supprimer les volumes |
-| `make logs` | Suivre les journaux |
-| `make migrate` | Appliquer les migrations encore absentes |
-| `make test` | Tests isolés en base, idempotence, conflits, validation et authentification |
-| `make backup` | Dump PostgreSQL + archive privée `.env` et cartes dans `backups/` |
-| `make restore FILE=backups/date.dump` | Restaurer uniquement dans une base **vide** ; refus sur une bibliothèque existante |
+| `make up` | Start API, database and worker using `.env` |
+| `make fixtures` | Explicit development fixture, no purge; never production |
+| `make mailpit` | Local SMTP capture and loopback Mailpit interface |
+| `make down` | Stop without deleting volumes |
+| `make logs` | Follow logs |
+| `make migrate` | Apply missing migrations |
+| `make test` | Database, idempotency, conflict, validation and auth checks |
+| `make ci` | Full isolated build, database and HTTP/Mailpit suite |
+| `make backup` | PostgreSQL dump and private configuration/map archive |
+| `make restore FILE=backups/date.dump` | Restore into an empty database only |
 
-Avec Caddy, utiliser `docker compose -f compose.yaml -f compose.https.yaml down` pour arrêter aussi la passerelle. Ne pas ajouter `-v` : cela détruirait les volumes.
+With Caddy, stop the gateway using `docker compose -f compose.yaml -f compose.https.yaml down`. Preserve volumes; do not add `-v`.
 
-Restauration de sinistre : préparer un hôte de récupération distinct, remettre la configuration privée et `data/maps`, démarrer seulement `docker compose up -d --wait db`, lancer `make restore FILE=...` **avant** les migrations, puis `make install`. Le script refuse d’écraser une base non vide. Sauvegarder les certificats Caddy si nécessaire, ou les faire réémettre. Le dump et l’archive de configuration doivent être conservés hors du serveur. Un test réel de restauration sur nouvel hôte reste à faire.
+For disaster recovery, prepare a separate host, restore private configuration and maps, start only `docker compose up -d --wait db`, restore before migrations, then run `make install`. Restore refuses a nonempty database. Preserve/reissue certificates as appropriate and keep dumps/config archives off-server. A successful fresh installation does not prove recovery; test restoration separately.
 
-## Cartes et altitudes
+For updates to this standalone stack, back up, replace code/lockfiles while preserving `.env` and `data`, then run `make install`. Changing `DB_PASSWORD` does not change the existing database's internal password. Use the production deployment procedure for the existing production stack.
 
-L’installation ne télécharge pas une carte du monde. Aucun faux endpoint de production n’est configuré. Préparer une fois les régions à distribuer dans `data/maps` : voir [OFFLINE.md](docs/OFFLINE.md). Après cette mise en place, la préparation de chaque randonnée se fait depuis le téléphone : catalogue, taille, téléchargement et validation locale. Les régions partagées sont réutilisées.
+## Maps, elevations and routing
 
-Pour les altitudes manquantes, installer votre instance Open Topo Data avec un jeu libre approprié et définir par exemple `ELEVATION_URL=http://votre-service-interne:5000/v1/srtm`, puis `make up` (recréation si environnement changé). Aucun fournisseur public n’est utilisé implicitement. L’API envoie au service configuré des groupes de 100 coordonnées maximum ; les lacunes restent nulles. L’échec de ce service ne bloque jamais l’accès aux cartes/GPX. Le logiciel de DEM et les données ne sont pas inclus et leur exploitation réelle n’a pas encore été testée.
+The mobile app prepares OpenFreeMap areas automatically. The optional legacy package catalog is built once under `data/maps/`; see [map packages](docs/OFFLINE.md). Installation does not download the world or claim a production region is ready. Shared regions are reused on the phone.
 
-## Mise à jour
+Missing elevations can use your Open Topo Data instance configured through `ELEVATION_URL`, for example `http://elevation:5000/v1/srtm`. No public DEM provider is implicitly selected. Requests contain at most 100 coordinates; missing values stay null and failure does not block maps/GPX. DEM software/data and real operation are not bundled or field-validated.
 
-Sauvegarder, remplacer le code/lockfiles en préservant `.env` et `data`, puis `make install`. Ne pas changer arbitrairement `DB_PASSWORD` sur une base existante : changer une variable ne modifie pas le mot de passe interne PostgreSQL. Aucun nettoyage destructif n’est effectué par les recettes.
+Authenticated `POST /api/approach` joins the nearest GPX point through Valhalla. Configure `ROUTING_URL` (default `https://valhalla1.openstreetmap.de/route`, low-volume testing). Use a dedicated provider for scale. Origin/destination coordinates go to the provider; requests are limited to about one per second per API instance. `language` selects English or French instructions. Recalculation is explicit. Restart using the environment-appropriate command; `make dev` preserves LAN publication.
 
-## Comptes, fixtures et emails
+## Fixtures and email
 
-Depuis `backend/` (ou la racine de l’archive extraite) :
+`make fixtures` runs inside the existing API container without host PHP/Composer. It is an explicit development-only historical-owner fixture, not part of `make install`. It preserves changed passwords, performs no purge and refuses an unrelated public account with the same identity. Never publish its local login values in mobile launch files; keep optional prefill in ignored Dev configuration.
 
-```sh
-make install
-make up
-make fixtures
-make test
-```
+`make mailpit` captures emails at `http://127.0.0.1:8025`, using internal `mailpit:1025` and a dummy sender for API/worker. It forwards nothing externally. `make up` or `make dev-off` returns to `.env` SMTP; run `make mailpit` again to restore capture. The worker sends queued reset emails; copy the code into Forgot password → I have a reset code. Codes expire after 30 minutes and work once; manual entry does not rely on deep-link handling.
 
-`make fixtures` exécute `php bin/fixtures.php` dans le conteneur API déjà démarré : aucun PHP/Composer sur l’hôte. La commande ajoute exactement `walker`, `walker@example.test`, mot de passe `REDACTED-FIXTURE-PASSWORD`, haché en base. Elle est explicite, jamais exécutée par `make install`, ne purge rien et préserve un mot de passe modifié. Les traces et reçus historiques sans propriétaire sont affectés uniquement à ce compte. Un compte homonyme public non créé par fixture provoque un refus, pour revue manuelle avant affectation.
+For a separately installed live server, configure real `MAILER_DSN` and `MAIL_FROM`, then recreate API/worker. For existing production use `make prod-reload`. Without configuration, known/unknown reset requests both return 503. Otherwise the neutral reply means queued; the worker retries every 30 seconds until expiry. Inspect worker logs and attempt counts without printing codes. Preserve `APP_SECRET`, which encrypts queued payloads. See [authentication](docs/AUTH.md).
 
-Capture locale des emails, sans envoi externe :
-
-```sh
-make mailpit
-```
-
-Ouvrir `http://127.0.0.1:8025`. Le SMTP interne `mailpit:1025` et l’expéditeur fictif ne sont configurés que par `compose.mailpit.yaml`, pour l’API et le worker. La publication API reste loopback. `make up` ou `make dev-off` reviennent à la configuration SMTP de `.env` ; relancer `make mailpit` pour réactiver le capteur. Mailpit ne relaie rien à un SMTP externe. L’API indique une demande **mise en file**, puis le worker livre au capteur. Le mail contient le code à copier dans Gpix → Mot de passe oublié → J’ai un code, ainsi qu’un lien `gpix://reset-password?token=…`. Le code expire après 30 minutes et ne sert qu’une fois ; le formulaire manuel fonctionne aussi sans ouverture automatique du lien.
-
-Production : renseigner un véritable `MAILER_DSN=smtps://…` (ou SMTP/STARTTLS adapté au fournisseur) et `MAIL_FROM` dans `.env`, puis `make up`. Aucun fournisseur ni expéditeur réel n’est inventé. Sans configuration, reset connu/inconnu → 503 identique. Avec configuration, réponse générique mise en file identique ; l’échec SMTP ultérieur est retenté toutes les 30 secondes jusqu’à expiration. Surveiller `docker compose logs --tail=100 mail-worker` et les compteurs `attempts` de `mail_outbox`, sans afficher les codes. Mis en file ne garantit pas livré.
-
-`APP_SECRET` chiffre les codes de la file via libsodium ; le préserver avec les sauvegardes de configuration. Les tables de sessions et codes ne stockent que leurs hashes. Mots de passe hachés via Symfony PasswordHasher. Voir [contrat auth](docs/AUTH.md).
-
-VS Code : ouvrir `../mobile`, sélectionner profil et téléphone puis F5. Depuis ce terminal, `cd ../backend` pour Make. Les profils debug préremplissent le compte de fixture ; aucune création automatique en production. Première authentification en ligne obligatoire, puis session et bibliothèque privées disponibles hors ligne même après expiration de l’accès court. Une révocation distante ne peut être constatée qu’au retour du réseau ; une déconnexion locale ferme immédiatement la bibliothèque.
+Mobile Prod does not prefill credentials. First login requires a connection; a recognized session then opens its private library offline despite access-token expiry. Explicit sign-out closes local access immediately; remote revocation is discovered on reconnect.

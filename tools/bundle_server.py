@@ -6,11 +6,11 @@ import hashlib
 root = pathlib.Path(__file__).resolve().parent.parent
 output = root / 'dist'
 output.mkdir(exist_ok=True)
-files = [root / p for p in ['README.md', 'INSTALL.md', '.env.example', 'compose.yaml', 'compose.https.yaml', 'compose.dev.yaml', 'compose.mailpit.yaml', 'Makefile']]
+files = [root / p for p in ['README.md', 'AGENTS.md', 'INSTALL.md', '.env.example', 'compose.yaml', 'compose.https.yaml', 'compose.dev.yaml', 'compose.mailpit.yaml', 'Makefile']]
 files += [root / 'docs' / p for p in ['OFFLINE.md', 'VALIDATION.md', 'AUTH.md']]
 files += [root / 'tools' / p for p in ['install.sh', 'backup.sh', 'restore.sh', 'package_region.py', 'dev_backend.dart', 'test_install.py', 'bundle_server.py']]
 files += [root / p for p in ['composer.json', 'composer.lock', 'Dockerfile', '.dockerignore']]
-for directory in ['src', 'bin', 'public', 'migrations', 'docker', 'tests']:
+for directory in ['src', 'bin', 'public', 'migrations', 'docker', 'tests', 'translations']:
     files += [p for p in (root / directory).rglob('*') if p.is_file()]
 for p in files:
     if p.suffix == '.sh' and b'\r\n' in p.read_bytes():

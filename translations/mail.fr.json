@@ -1,0 +1,4 @@
+{
+  "resetSubject": "Gpix — réinitialiser votre mot de passe",
+  "resetBody": "Dans Gpix, ouvrez Mot de passe oublié puis J’ai un code de réinitialisation. Code (valable 30 minutes après demande) :\n{token}\n\nLien : gpix://reset-password?token={token}\nIgnorez ce message si vous n’avez rien demandé."
+}

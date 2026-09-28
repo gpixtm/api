@@ -18,7 +18,7 @@ final readonly class WalkingDirections
                 !is_numeric($p[0]) || !is_numeric($p[1]) ||
                 !is_finite((float)$p[0]) || !is_finite((float)$p[1]) ||
                 abs((float)$p[0]) > 90 || abs((float)$p[1]) > 180) {
-                throw new \InvalidArgumentException('Coordonnées de départ ou d’arrivée invalides.');
+                throw new \InvalidArgumentException('Invalid origin or destination coordinates.');
             }
             $locations[] = ['lat' => (float)$p[0], 'lon' => (float)$p[1], 'search_cutoff' => 100];
         }
@@ -27,13 +27,13 @@ final readonly class WalkingDirections
         if (!$lock || !flock($lock, LOCK_EX)) throw new \RuntimeException('Routing limit unavailable');
         try {
             $last = (float)stream_get_contents($lock);
-            if (microtime(true) - $last < 1.05) throw new TooManyRequestsHttpException(2, 'Patientez deux secondes avant de recalculer.');
+            if (microtime(true) - $last < 1.05) throw new TooManyRequestsHttpException(2, 'Wait two seconds before recalculating.');
             ftruncate($lock, 0); rewind($lock); fwrite($lock, (string)microtime(true)); fflush($lock);
         } finally { flock($lock, LOCK_UN); fclose($lock); }
         $url = getenv('ROUTING_URL') ?: 'https://valhalla1.openstreetmap.de/route';
         $data = $this->http->request('POST', $url, [
             'headers' => ['User-Agent' => 'Gpix/1.0 (walking route planner)'],
-            'json' => ['locations' => $locations, 'costing' => 'pedestrian', 'language' => 'fr-FR', 'units' => 'kilometers'],
+            'json' => ['locations' => $locations, 'costing' => 'pedestrian', 'language' => ($request['language'] ?? 'en') === 'fr' ? 'fr-FR' : 'en-US', 'units' => 'kilometers'],
             'timeout' => 20, 'max_duration' => 25, 'max_redirects' => 0,
         ])->toArray();
         $trip = $data['trip'] ?? [];

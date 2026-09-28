@@ -21,7 +21,7 @@ final readonly class Authenticate
         }
         foreach ($values as $value) {
             if (!is_string($value)) {
-                throw new \InvalidArgumentException('Tous les champs doivent être du texte.');
+                throw new \InvalidArgumentException('All fields must be text.');
             }
         }
         $get = fn(string $key): string => $values[$key] ?? '';
@@ -37,16 +37,16 @@ final readonly class Authenticate
                 $this->accounts->logout($get('refresh_token'), $access);
                 break;
             case 'forgot-password':
-                $this->accounts->forgot($get('email'));
-                return ['message' => 'Si ce compte existe, la demande a été mise en file d’envoi.'];
+                $this->accounts->forgot($get('email'), $get('language') === 'fr' ? 'fr' : 'en');
+                return ['message' => 'If this account exists, the request has been queued for delivery.'];
             case 'reset-password':
                 $this->accounts->reset($get('token'), $get('password'));
                 break;
             case 'change-password':
                 $this->accounts->change($user['id'], $get('current_password'), $get('password'));
                 break;
-            default: throw new \InvalidArgumentException('Opération inconnue.');
+            default: throw new \InvalidArgumentException('Unknown operation.');
         }
-        return ['message' => 'Opération terminée.'];
+        return ['message' => 'Operation completed.'];
     }
 }

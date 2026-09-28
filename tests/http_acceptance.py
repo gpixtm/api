@@ -20,8 +20,8 @@ opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 created = []
 
 
-def call(path, body=None, access=None, expected=200):
-    headers = {'Content-Type': 'application/json'}
+def call(path, body=None, access=None, expected=200, language='en'):
+    headers = {'Content-Type': 'application/json', 'Accept-Language': language}
     if access:
         headers['Authorization'] = 'Bearer ' + access
     request = urllib.request.Request(BASE + path,
@@ -42,14 +42,17 @@ def check(label):
     print('PASS', label)
 
 
-def reset_code(email, previous=None):
+def reset_code(email, previous=None, expected_phrase=None):
     url = MAILPIT + '/view/latest.txt?' + urllib.parse.urlencode({'query': 'to:' + email})
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         try:
             with opener.open(url, timeout=3) as response:
-                match = re.search(r'\b[a-f0-9]{64}\b', response.read().decode())
+                content = response.read().decode('utf-8')
+                match = re.search(r'\b[a-f0-9]{64}\b', content)
                 if match and match.group() != previous:
+                    if expected_phrase is not None:
+                        assert expected_phrase in content, 'Reset email language mismatch'
                     return match.group()
         except urllib.error.HTTPError as error:
             if error.code != 404:
@@ -123,21 +126,21 @@ try:
         known = call('/api/auth/forgot-password', {'email': a['user']['email']})
         unknown = call('/api/auth/forgot-password', {'email': 'absent-' + uuid.uuid4().hex + '@example.invalid'})
         assert known == unknown
-        code = reset_code(a['user']['email'])
+        code = reset_code(a['user']['email'], expected_phrase='Forgot password')
         call('/api/auth/reset-password', {'token': code, 'password': password + 'reset'})
         call('/api/auth/reset-password', {'token': code, 'password': password + 'reuse'}, expected=422)
         call('/api/auth/me', access=before_reset['access_token'], expected=401)
         call('/api/auth/refresh', {'refresh_token': before_reset['refresh_token']}, expected=401)
         call('/api/auth/login', {'identifier': a['user']['email'], 'password': password + 'x'}, expected=401)
         a = call('/api/auth/login', {'identifier': a['user']['email'], 'password': password + 'reset'})
-        call('/api/auth/forgot-password', {'email': a['user']['email']})
-        expired = reset_code(a['user']['email'], previous=code)
+        call('/api/auth/forgot-password', {'email': a['user']['email']}, language='fr')
+        expired = reset_code(a['user']['email'], previous=code, expected_phrase='Mot de passe oublié')
         owner = str(uuid.UUID(a['user']['id']))
         subprocess.run(['docker', 'compose', 'exec', '-T', 'db', 'psql', '-U', 'gpix', '-d', 'gpix', '-v', 'ON_ERROR_STOP=1'],
             input=f"UPDATE password_resets SET expires_at=now()-interval '1 second' WHERE user_id='{owner}';", text=True,
             stdout=subprocess.DEVNULL, check=True)
         call('/api/auth/reset-password', {'token': expired, 'password': password + 'expired'}, expected=422)
-        check('local SMTP capture, neutral reset reply, new password, single-use and expiry over HTTP')
+        check('English/French SMTP capture, neutral reset reply, new password, single-use and expiry over HTTP')
     # A random nonexistent identifier exercises the persisted per-identifier limit.
     limited = 'qa_missing_' + uuid.uuid4().hex
     for _ in range(10):

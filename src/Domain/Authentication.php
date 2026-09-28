@@ -8,7 +8,7 @@ interface Authentication {
  public function login(array $values): array;
  public function refresh(string $token): array;
  public function logout(string $refresh,string $access): void;
- public function forgot(string $email): void;
+ public function forgot(string $email, string $language = 'en'): void;
  public function reset(string $token,string $password): void;
  public function change(string $id,string $current,string $password): void;
 }

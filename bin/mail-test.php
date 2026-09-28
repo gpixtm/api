@@ -19,7 +19,7 @@ try {
         ->from(getenv('MAIL_FROM'))
         ->to($recipient)
         ->subject('Gpix — test SMTP')
-        ->text("L'envoi des emails Gpix fonctionne depuis le serveur de production.\n"));
+        ->text("Gpix email delivery works from the production server.\n"));
     echo "SMTP accepted the message. Check the recipient's inbox and spam folder to confirm delivery.\n";
 } catch (Throwable $e) {
     // Do not print SMTP diagnostics: they may contain authentication material.
