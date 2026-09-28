@@ -45,6 +45,7 @@ migrate:
 test:
 	$(DC) exec -T api php tests/accounts.php
 	$(DC) exec -T api php tests/run.php
+	$(DC) exec -T api php tests/statistics_upgrade.php
 backup:
 	"$(SH)" tools/backup.sh
 restore:

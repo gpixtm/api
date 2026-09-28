@@ -49,14 +49,7 @@ final readonly class Mutation
             if (!is_array($p['days']) || !array_is_list($p['days']) || count($p['days']) > 1000) {
                 throw new \InvalidArgumentException('Invalid walking days');
             }
-            $length = 0.0;
-            foreach ($p['segments'] as $segment) {
-                for ($i = 1; $i < count($segment); ++$i) {
-                    $a = $segment[$i - 1]; $b = $segment[$i];
-                    $h = sin(deg2rad($b[0] - $a[0]) / 2) ** 2 + cos(deg2rad($a[0])) * cos(deg2rad($b[0])) * sin(deg2rad($b[1] - $a[1]) / 2) ** 2;
-                    $length += 6371008.8 * 2 * asin(sqrt(min(1, max(0, $h))));
-                }
-            }
+            $length = WalkContribution::length($p['segments']);
             foreach ($p['days'] as $day) {
                 if (!is_array($day) || !array_is_list($day) || count($day) !== 2) throw new \InvalidArgumentException('Invalid walking day');
                 foreach ($day as $boundary) {
@@ -91,6 +84,9 @@ final readonly class Mutation
         if ($end < $start || !is_int($walk['seconds'] ?? null) || $walk['seconds'] < 0 || $walk['seconds'] > $end - $start + 1) throw new \InvalidArgumentException('Invalid recording duration');
         $source = $walk['sourceTrailId'] ?? null;
         if ($source !== null && (!is_string($source) || !preg_match('/^[a-f0-9-]{36}$/D', $source))) throw new \InvalidArgumentException('Invalid recording source');
+        // Route a free walk created or matched; absent in payloads from older apps.
+        $route = $walk['routeId'] ?? null;
+        if ($route !== null && (!is_string($route) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $route))) throw new \InvalidArgumentException('Invalid recording route');
         $samples = $walk['samples'] ?? [];
         if (!is_array($samples) || !array_is_list($samples) || count($samples) > 500000) throw new \InvalidArgumentException('Invalid recording samples');
         $previous = $start - 15;

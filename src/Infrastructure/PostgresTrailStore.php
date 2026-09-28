@@ -3,10 +3,11 @@ declare(strict_types=1);
 namespace App\Infrastructure;
 use App\Domain\Mutation;
 use App\Domain\TrailStore;
+use App\Domain\WalkContribution;
 
 final readonly class PostgresTrailStore implements TrailStore
 {
-    public function __construct(private \PDO $db, private OwnerContext $owner) {}
+    public function __construct(private \PDO $db, private OwnerContext $owner, private PostgresTrailStatistics $statistics) {}
     public function apply(Mutation $m): array
     {
         $owner=$this->owner->requireId();
@@ -34,6 +35,7 @@ final readonly class PostgresTrailStore implements TrailStore
             ++$revision;
             $stmt = $this->db->prepare('INSERT INTO trails (id,payload,revision,deleted,mutation,owner_id) VALUES (?,?::jsonb,?,?::boolean,?,?) ON CONFLICT (id) DO UPDATE SET payload=excluded.payload, revision=excluded.revision, deleted=excluded.deleted, mutation=excluded.mutation');
             $stmt->execute([$m->id, json_encode($m->payload, JSON_THROW_ON_ERROR), $revision, $m->deleted ? 'true' : 'false', $m->operationId,$owner]);
+            $this->statistics->record($owner, $m->id, WalkContribution::fromPayload($m->payload, $m->deleted));
             $response = ['conflict' => false, 'revision' => $revision];
             $this->db->prepare('INSERT INTO receipts (operation_id,digest,response,owner_id) VALUES (?,?,?::jsonb,?)')->execute([$m->operationId, $digest, json_encode($response, JSON_THROW_ON_ERROR),$owner]);
             $this->db->commit();
