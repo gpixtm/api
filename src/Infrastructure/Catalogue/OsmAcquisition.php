@@ -29,6 +29,7 @@ final readonly class OsmAcquisition
             $routes = $this->osmium->routes($extract, $work);
             $data = OsmExtract::read($this->osmium->objects($routes));
             $log(sprintf('Read %d relations and %d ways (%.0f MB)', count($data->relations), $data->wayCount(), memory_get_peak_usage(true) / 1e6));
+            if ($data->relations !== [] && $data->wayCount() === 0) throw new \RuntimeException('Routes were read without any way geometry.');
             $plan = OsmCataloguePlan::of($data->relations);
             $log(sprintf('Planned %d trails and %d groups; %d Ways of St James', count($plan->trails), count($plan->groups), count($plan->stJames)));
             $stats = $this->writer->write($run, $country, $plan, $data, $log);

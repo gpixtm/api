@@ -94,6 +94,39 @@ check($plan->stJames === [['group', 310]], 'only the outermost Way of St James j
 check(str_contains($plan->trails[300]['search'], 'compostelle') && str_contains($plan->trails[101]['search'], 'fra li monti'), 'trails are found by the names and keywords of their groups');
 check($plan->trails[100]['details']['descriptions'] === ['fr' => 'Traversée de la Corse'] && $plan->trails[100]['description'] === 'Traversée de la Corse', 'descriptions keep their language and accents');
 
+// The real osmium of the image: an OSM file through the filter and OPL reading keeps
+// walking routes with their ways' coordinates and drops the rest.
+$work = sys_get_temp_dir().'/gpix-osmium-'.bin2hex(random_bytes(4));
+mkdir($work);
+try {
+    file_put_contents("$work/extract.osm", <<<'XML'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <osm version="0.6" generator="test">
+          <node id="1" version="1" lat="42.0" lon="9.0"/>
+          <node id="2" version="1" lat="42.001" lon="9.0"/>
+          <node id="3" version="1" lat="42.002" lon="9.001"/>
+          <node id="4" version="1" lat="43.0" lon="8.0"/>
+          <node id="5" version="1" lat="43.001" lon="8.0"/>
+          <way id="10" version="1"><nd ref="1"/><nd ref="2"/><tag k="highway" v="path"/></way>
+          <way id="11" version="1"><nd ref="2"/><nd ref="3"/><tag k="highway" v="path"/></way>
+          <way id="12" version="1"><nd ref="4"/><nd ref="5"/><tag k="highway" v="cycleway"/></way>
+          <relation id="20" version="1"><member type="way" ref="10" role=""/><member type="way" ref="11" role=""/>
+            <tag k="type" v="route"/><tag k="route" v="hiking"/><tag k="name" v="Sentier de l’Ermite"/></relation>
+          <relation id="21" version="1"><member type="way" ref="12" role=""/>
+            <tag k="type" v="route"/><tag k="route" v="bicycle"/><tag k="name" v="Vélo"/></relation>
+        </osm>
+        XML);
+    $osmium = new App\Infrastructure\Catalogue\Osmium();
+    $routes = OsmExtract::read($osmium->objects($osmium->routes("$work/extract.osm", $work)));
+    check(array_keys($routes->relations) === [20] && $routes->wayCount() === 2, 'osmium keeps walking routes and their ways only');
+    $line = $routes->trail([[10, ''], [11, '']]);
+    check($line !== null && count($line['segments']) === 1 && $line['segments'][0][2] === [42.002, 9.001, null], 'ways arrive with their coordinates');
+    check($routes->relations[20]['tags']['name'] === 'Sentier de l’Ermite', 'names keep their Unicode through osmium');
+} finally {
+    foreach (glob("$work/*") ?: [] as $path) unlink($path);
+    rmdir($work);
+}
+
 $db = Database::connect();
 $country = 'XA';
 $accounts = new App\Infrastructure\Accounts($db);

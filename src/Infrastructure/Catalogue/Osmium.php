@@ -26,7 +26,8 @@ final readonly class Osmium
     public function objects(string $routes): \Generator
     {
         $errors = tmpfile();
-        $process = proc_open([$this->binary, 'cat', '--no-progress', '-t', 'way', '-t', 'relation', '-f', 'opl', '-o', '-', $routes],
+        // OPL only writes the node locations of ways when asked to.
+        $process = proc_open([$this->binary, 'cat', '--no-progress', '-t', 'way', '-t', 'relation', '-f', 'opl,locations_on_ways=true', '-o', '-', $routes],
             [1 => ['pipe', 'w'], 2 => $errors], $pipes);
         if (!is_resource($process)) throw new \RuntimeException('Unable to start osmium.');
         try {
