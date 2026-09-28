@@ -11,22 +11,31 @@ final class OsmRoute
 {
     public const NAME_LENGTH = 300;
     public const DESCRIPTION_LENGTH = 5000;
+    /** A description this short can name an otherwise unnamed route. */
+    public const SHORT_NAME = 80;
 
     /** Way roles that belong to the route's own line; alternatives and excursions do not. */
     private const LINE_ROLES = ['', 'main', 'forward', 'backward', 'route', 'hiking', 'section'];
 
     /** Tags whose words help find the trail, besides its name. */
-    private const SEARCH_TAGS = ['name', 'official_name', 'alt_name', 'short_name', 'loc_name', 'name:fr', 'name:en', 'name:es', 'name:it', 'name:de', 'name:pt', 'name:ca', 'name:eu', 'name:oc', 'name:co', 'ref', 'from', 'to', 'via'];
+    private const SEARCH_TAGS = ['name', 'official_name', 'osmc:name', 'alt_name', 'short_name', 'loc_name', 'name:fr', 'name:en', 'name:es', 'name:it', 'name:de', 'name:pt', 'name:ca', 'name:eu', 'name:oc', 'name:co', 'ref', 'from', 'to', 'via'];
 
+    /**
+     * The displayed name: the route's name or reference, else the name of its
+     * waymarks (`osmc:name`), else "from – to", else a short description such as
+     * "Wissembourg - Weiler - Climbach", common on local waymarked networks.
+     */
     public static function name(array $tags): ?string
     {
-        foreach (['name', 'official_name', 'ref'] as $key) {
+        foreach (['name', 'official_name', 'ref', 'osmc:name'] as $key) {
             $value = self::text($tags[$key] ?? null, self::NAME_LENGTH);
             if ($value !== null) return $value;
         }
         $from = self::text($tags['from'] ?? null, 140);
         $to = self::text($tags['to'] ?? null, 140);
-        return $from !== null && $to !== null ? $from.' – '.$to : null;
+        if ($from !== null && $to !== null) return $from.' – '.$to;
+        $description = self::text($tags['description'] ?? null, self::DESCRIPTION_LENGTH);
+        return $description !== null && mb_strlen($description) <= self::SHORT_NAME ? $description : null;
     }
 
     /** The trail page details, without empty values. */

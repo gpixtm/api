@@ -59,6 +59,13 @@ check(count($segments) === 2, 'a gap starts a new segment instead of an imaginar
 $segments = RouteAssembler::segments([$w(3, 4, 42.002, 42.003), $w(8, 9, 42.1, 42.101), $w(1, 2, 42.0, 42.001), $w(2, 3, 42.001, 42.002)]);
 check(count($segments) === 2 && max(array_map('count', $segments)) === 7, 'pieces listed out of order are merged back');
 
+// Naming routes that have no name.
+check(OsmRoute::name(['osmc:name' => 'Lucelle Douane - Pleigne', 'network' => 'lwn']) === 'Lucelle Douane - Pleigne', 'waymark names name unnamed routes');
+check(OsmRoute::name(['from' => 'Bief-du-Fourg', 'to' => 'Cerniébaud']) === 'Bief-du-Fourg – Cerniébaud', 'from and to name a route');
+check(OsmRoute::name(['description' => 'Wissembourg - Weiler - St-Germain - Climbach']) === 'Wissembourg - Weiler - St-Germain - Climbach', 'a short description names a route');
+check(OsmRoute::name(['description' => str_repeat('Une longue description du sentier. ', 5)]) === null, 'a long description does not');
+check(OsmRoute::name(['network' => 'lwn', 'osmc:symbol' => 'yellow::yellow_bar']) === null, 'a route with only waymarks stays unnamed');
+
 // Ways of St James detection.
 check(OsmRoute::isWayOfStJames(['name' => 'GR 65 - Via Podiensis']), 'Via Podiensis is a Way of St James');
 check(OsmRoute::isWayOfStJames(['name' => 'Chemin de Saint-Jacques : voie de Vézelay']), 'a "chemin de Saint-Jacques" is a Way of St James');
