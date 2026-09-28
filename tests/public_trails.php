@@ -147,6 +147,37 @@ try {
     check($status === 200 && $place['deleted'] === true && $http('a', 'DELETE', "/api/public-trails/{$mine['id']}/places/$placeId")[0] === 200, 'deleting a place is idempotent');
     $tombstone = $catalogue('b')->places($feed['next']);
     check(count($tombstone['places']) === 1 && $tombstone['places'][0]['deleted'] === true, 'cached phones receive the deletion');
+    check($feed['places'][0]['origin'] === 'onSite', 'a place sent without an origin was added on site');
+
+    // Waypoints imported from a GPX file onto the trail: shared too, up to 5 km off it, never twice.
+    $placesUrl = "/api/public-trails/{$mine['id']}/places/";
+    $visible = fn() => (int)$db->query("SELECT count(*) FROM trail_places WHERE trail_id = '{$mine['id']}' AND NOT deleted")->fetchColumn();
+    // About 2 km east of the line.
+    $hostel = ['lat' => 45.205, 'lon' => $lon + 0.025, 'elevation' => null, 'name' => 'Gîte d’étape « Le Refuge »', 'comment' => '12 places', 'origin' => 'imported'];
+    [$status, $error] = $http('a', 'PUT', $placesUrl.uuid(), ['origin' => 'onSite'] + $hostel);
+    check($status === 422 && $error['code'] === 'placeTooFar', 'a place added on site 2 km off the trail is refused');
+    $hostelId = uuid();
+    [$status, $imported] = $http('a', 'PUT', $placesUrl.$hostelId, $hostel);
+    check($status === 200 && $imported['id'] === $hostelId && $imported['origin'] === 'imported' && $imported['name'] === 'Gîte d’étape « Le Refuge »',
+        'an imported place 2 km off the trail is shared with its original name');
+    check($http('a', 'PUT', $placesUrl.$hostelId, $hostel)[0] === 200 && $visible() === 1, 'retrying an imported place changes nothing');
+    [$status, $error] = $http('a', 'PUT', $placesUrl.uuid(), ['lon' => $lon + 0.07] + $hostel);
+    check($status === 422 && $error['code'] === 'placeTooFar', 'an imported place beyond 5 km is refused');
+    // About 11 m away, with another case, accents and punctuation.
+    [$status, $same] = $http('b', 'PUT', $placesUrl.uuid(), ['lat' => 45.2051, 'name' => "GITE D'ETAPE le refuge", 'comment' => 'Another file'] + $hostel);
+    check($status === 200 && $same['id'] === $hostelId && $same['mine'] === false && $same['comment'] === '12 places' && $visible() === 1,
+        'the same point imported by another walker is the existing place');
+    [$status, $spring] = $http('b', 'PUT', $placesUrl.uuid(), ['name' => 'Fontaine'] + $hostel);
+    check($status === 200 && $spring['id'] !== $hostelId && $spring['mine'] === true && $visible() === 2, 'another name at the same spot is another place');
+    [$status, $far] = $http('b', 'PUT', $placesUrl.uuid(), ['lat' => 45.2056] + $hostel);
+    check($status === 200 && $far['id'] !== $hostelId && $visible() === 3, 'the same name 67 m away is another place');
+    [$status, $edited] = $http('a', 'PUT', $placesUrl.$hostelId, array_diff_key(['comment' => '14 places'] + $hostel, ['origin' => true]));
+    check($status === 200 && $edited['origin'] === 'imported' && $edited['comment'] === '14 places', 'an edit from an older app keeps an imported place imported');
+    [$status, $error] = $http('a', 'PUT', $placesUrl.uuid(), ['origin' => 'elsewhere'] + $hostel);
+    check($status === 422 && $error['code'] === 'invalidPlace', 'an unknown origin is refused');
+    $imports = $catalogue('b')->places($tombstone['next']);
+    check(in_array('imported', array_column($imports['places'], 'origin'), true) && count(array_unique(array_column($imports['places'], 'id'))) === 3,
+        'other walkers receive imported places with their origin');
 
     $push('a', $mine, 1, true);
     check($catalogue('b')->find($mine['id'])['name'] === $mine['name'], 'deleting a private copy never unpublishes the shared trail');

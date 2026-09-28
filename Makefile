@@ -54,6 +54,7 @@ test:
 	$(DC) exec -T api php tests/statistics_upgrade.php
 	$(DC) exec -T api php tests/public_trails.php
 	$(DC) exec -T api php tests/public_trails_upgrade.php
+	$(DC) exec -T api php tests/place_origin_upgrade.php
 	$(DC) exec -T api php tests/catalogue.php
 	$(DC) exec -T api php tests/catalogue_upgrade.php
 backup:
