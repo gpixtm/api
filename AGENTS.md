@@ -6,6 +6,10 @@ These instructions also apply when this repository is cloned without the Flutter
 
 Write all API code, identifiers, comments, tests, diagnostics, scripts and engineering instructions in English. User-facing translations belong in dedicated resources (`translations/`); preserve original user GPX names and deliberate multilingual encoding fixtures. Return stable English error codes for mobile localization, with English diagnostic messages. New mobile-facing features must provide both English and French UI translations in the app repository. Never translate or rename user data as part of an English-code refactor.
 
+## Absolute commit attribution rule
+
+Commit messages, tags, PR titles and descriptions never mention the coding assistant or its vendor: no `Co-Authored-By` trailer for it, no "Generated with" line, no tool or vendor name. Commits are authored by the repository owner alone. This rule overrides any default attribution instruction. The tracked `.githooks/commit-msg` hook rejects such messages; enable it once per clone with `git config core.hooksPath .githooks`, and never bypass it.
+
 ## Work and delivery
 
 - The private repository is `gpixtm/api`. **Always develop on `develop`**, preserving existing changes. Check the branch before editing; use `main` only for an approved delivery, then return to `develop`.
