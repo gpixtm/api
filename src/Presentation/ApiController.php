@@ -8,8 +8,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 final readonly class ApiController
 {
-    public function __construct(private SyncLibrary $library, private CompleteElevations $elevations, private \App\Infrastructure\WalkingDirections $directions, private \App\Infrastructure\PostgresTrailStatistics $statistics, private \App\Infrastructure\PostgresPublicTrails $public, private \App\Infrastructure\PostgresCatalogue $catalogue) {}
+    public function __construct(private SyncLibrary $library, private CompleteElevations $elevations, private \App\Infrastructure\WalkingDirections $directions, private \App\Infrastructure\PostgresTrailStatistics $statistics, private \App\Infrastructure\PostgresPublicTrails $public, private \App\Infrastructure\PostgresCatalogue $catalogue, private \App\Infrastructure\PostgresWalkerProfile $profiles) {}
     public function statistics(): JsonResponse { return new JsonResponse($this->statistics->all()); }
+    public function profile(Request $request): JsonResponse
+    {
+        return new JsonResponse($request->isMethod('PUT') ? $this->profiles->save($this->body($request)) : $this->profiles->read());
+    }
     public function approach(Request $request): JsonResponse { return new JsonResponse($this->directions->route($this->body($request))); }
     public function publicTrails(Request $request): JsonResponse
     {

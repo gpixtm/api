@@ -102,7 +102,29 @@ try {
     $fromApi=json_decode($kernel->handle($statisticsRequest)->getContent(),true,512,JSON_THROW_ON_ERROR);
     check(count(array_filter($fromApi,fn($s)=>$s['trailId']===$followed && $s['walks']===1))===1,'statistics endpoint returns the owner running totals');
     check($kernel->handle(Symfony\Component\HttpFoundation\Request::create('/api/statistics'))->getStatusCode()===401,'statistics require authentication');
+    // Walker profile (account data) and phone steps / calorie estimate on walks.
+    $profileRequest=function(?array $body) use ($kernel,$session) {
+        $r=Symfony\Component\HttpFoundation\Request::create('/api/profile',$body===null?'GET':'PUT',[],[],[],['CONTENT_TYPE'=>'application/json'],$body===null?null:json_encode($body));
+        $r->headers->set('Authorization','Bearer '.$session['access_token']);
+        return $kernel->handle($r);
+    };
+    check(json_decode($profileRequest(null)->getContent(),true)===['weightKg'=>null,'packKg'=>null],'profile starts unknown');
+    check($profileRequest(['weightKg'=>72.35,'packKg'=>8])->getStatusCode()===200,'profile saved');
+    $restoredProfile=json_decode($profileRequest(null)->getContent(),true);
+    check(abs($restoredProfile['weightKg']-72.4)<1e-9 && $restoredProfile['packKg']==8,'profile restored for another phone');
+    check($profileRequest(['weightKg'=>12,'packKg'=>null])->getStatusCode()>=400 && $profileRequest(['weightKg'=>70,'packKg'=>90])->getStatusCode()>=400,'implausible weights rejected');
+    check($kernel->handle(Symfony\Component\HttpFoundation\Request::create('/api/profile'))->getStatusCode()===401,'profile requires authentication');
+    $counted=$walkOn(0.009, 720, $followed); $counted['mutation']=uuid(); $counted['baseRevision']=1;
+    $counted['payload']['walk']['steps']=1320; $counted['payload']['walk']['estimatedCalories']=61.5;
+    $store->apply(Mutation::fromArray($counted));
+    $saved=array_values(array_filter($store->all(),fn($r)=>$r['id']===$counted['id']));
+    check($saved[0]['payload']['walk']['steps']===1320 && $saved[0]['payload']['walk']['estimatedCalories']===61.5,'walk steps and calorie estimate restored');
+    foreach ([['steps',-1],['steps',1.5],['estimatedCalories',-3],['estimatedCalories','60']] as [$key,$value]) {
+        $invalid=$counted; $invalid['payload']['walk'][$key]=$value;
+        try { Mutation::fromArray($invalid); throw new RuntimeException('accepted invalid walk measure'); } catch (InvalidArgumentException) { echo "PASS walk measure validation\n"; }
+    }
 } finally {
+    $db->prepare('DELETE FROM walker_profiles WHERE user_id=?')->execute([$owner->id]);
     $db->prepare('DELETE FROM trail_statistic_walks WHERE owner_id=?')->execute([$owner->id]);
     $db->prepare('DELETE FROM trail_statistics WHERE owner_id=?')->execute([$owner->id]);
     foreach ($walks ?? [] as $walk) $db->prepare('DELETE FROM trails WHERE id=?')->execute([$walk]);

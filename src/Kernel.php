@@ -31,6 +31,7 @@ class Kernel extends BaseKernel
         $routes->add('health', '/health')->controller([ApiController::class, 'health'])->methods(['GET']);
         $routes->add('trails', '/api/trails')->controller([ApiController::class, 'trails'])->methods(['GET']);
         $routes->add('statistics', '/api/statistics')->controller([ApiController::class, 'statistics'])->methods(['GET']);
+        $routes->add('profile', '/api/profile')->controller([ApiController::class, 'profile'])->methods(['GET', 'PUT']);
         $routes->add('sync', '/api/sync')->controller([ApiController::class, 'sync'])->methods(['POST']);
         $routes->add('regions', '/api/regions')->controller([ApiController::class, 'regions'])->methods(['GET']);
         $routes->add('package', '/api/packages/{name}')->controller([ApiController::class, 'package'])->methods(['GET']);

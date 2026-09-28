@@ -87,6 +87,11 @@ final readonly class Mutation
         // Route a free walk created or matched; absent in payloads from older apps.
         $route = $walk['routeId'] ?? null;
         if ($route !== null && (!is_string($route) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $route))) throw new \InvalidArgumentException('Invalid recording route');
+        // Phone step count and active-calorie estimate; absent from older apps.
+        $steps = $walk['steps'] ?? null;
+        if ($steps !== null && (!is_int($steps) || $steps < 0 || $steps > 10000000)) throw new \InvalidArgumentException('Invalid recording steps');
+        $calories = $walk['estimatedCalories'] ?? null;
+        if ($calories !== null && ((!is_int($calories) && !is_float($calories)) || !is_finite((float)$calories) || $calories < 0 || $calories > 100000)) throw new \InvalidArgumentException('Invalid recording calories');
         // The followed trail's simplified line, so history shows it even without the trail.
         if (isset($walk['reference'])) {
             $reference = $walk['reference'];
