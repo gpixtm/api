@@ -227,6 +227,18 @@ try {
     check($status === 200 && $group['kind'] === 'itinerary' && array_column($group['members'], 'role') === ['main', 'variant'] && isset($group['members'][0]['trail']['outline']), 'the group page lists its main route then its variant with outlines');
     check($group['trailCount'] === 2 && abs($group['metres'] - $area['trails'][array_search($main, $ids, true)]['metres']) < 1, 'a group\'s length is its main line');
 
+    // Stage numbers agree between a trail page and its group page once a stage is withdrawn.
+    $stages = uuid();
+    $rel300 = CatalogueWriter::id('trail', 'relation/300');
+    $http('a', 'PUT', "/api/trail-groups/$stages", ['kind' => 'itinerary', 'name' => 'Étapes', 'members' => [['trailId' => $main], ['trailId' => $walkerTrail], ['trailId' => $rel300]]]);
+    $db->exec("UPDATE public_trails SET hidden = true WHERE id = '$main'");
+    [, $numbered] = $http('b', 'GET', "/api/trail-groups/$stages");
+    [, $third] = $http('b', 'GET', "/api/public-trails/$rel300");
+    $inGroup = array_values(array_filter($third['groups'], fn($p) => end($p['groups'])['id'] === $stages))[0];
+    check(array_column($numbered['members'], 'stage') === [1, 2] && $inGroup['stage'] === 2, 'a withdrawn stage shifts neither the group page nor the trail page');
+    $db->exec("UPDATE public_trails SET hidden = false WHERE id = '$main'");
+    $http('a', 'DELETE', "/api/trail-groups/$stages");
+
     // Walkers' groups: public, author-only, no cycles.
     $mine = uuid();
     [$status, $saved] = $http('a', 'PUT', "/api/trail-groups/$mine", ['kind' => 'collection', 'name' => 'Mes projets d\'été ☀️', 'description' => 'À faire',
