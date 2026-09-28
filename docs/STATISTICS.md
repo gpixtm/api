@@ -23,6 +23,10 @@ Statistics stay private to their owner even though the trail itself is shared ([
 
 Statistics survive deletion of the GPX itself, because the walks still exist.
 
+## Walker profile
+
+`GET`/`PUT /api/profile` holds the owner's `weightKg` (25–300) and `packKg` (0–60), each nullable, in `walker_profiles` (migration 009). The app uses them to estimate active calories and restores them on another phone. Walks may carry `steps`, from the phone's step counter, and `estimatedCalories`, in active kcal. Both are optional and validated.
+
 ## API
 
 `GET /api/statistics` (authenticated) returns the current user's totals:
