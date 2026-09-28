@@ -312,9 +312,11 @@ final readonly class PostgresCatalogue
     private function stageNumbers(array $groups, string $trailId): array
     {
         if ($groups === []) return [];
+        // Numbered like the group page: withdrawn members are not stages.
         $q = $this->db->prepare('SELECT group_id, n FROM (
                 SELECT m.group_id, m.trail_id, row_number() OVER (PARTITION BY m.group_id ORDER BY m.position) AS n
-                FROM trail_group_members m WHERE m.role = \'stage\' AND m.group_id IN ('.implode(',', array_fill(0, count($groups), '?')).')) s
+                FROM trail_group_members m LEFT JOIN public_trails t ON t.id = m.trail_id LEFT JOIN trail_groups g ON g.id = m.member_group_id
+                WHERE m.role = \'stage\' AND NOT COALESCE(t.hidden, g.hidden) AND m.group_id IN ('.implode(',', array_fill(0, count($groups), '?')).')) s
             WHERE s.trail_id = ?');
         $q->execute([...$groups, $trailId]);
         return array_map('intval', $q->fetchAll(\PDO::FETCH_KEY_PAIR));
