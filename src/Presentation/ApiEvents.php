@@ -21,7 +21,7 @@ final class ApiEvents implements EventSubscriberInterface
     {
         $e = $event->getThrowable();
         $status = $e instanceof \InvalidArgumentException ? 422 : ($e instanceof HttpExceptionInterface ? $e->getStatusCode() : 503);
-        $message = in_array($status,[401,422,429],true) ? $e->getMessage() : 'Service unavailable or resource not found';
+        $message = in_array($status,[401,403,422,429],true) ? $e->getMessage() : 'Service unavailable or resource not found';
         $event->setResponse(new JsonResponse(['error' => $message, 'code' => ErrorCodes::forMessage($message)], $status));
     }
 }

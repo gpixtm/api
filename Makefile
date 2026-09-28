@@ -46,6 +46,8 @@ test:
 	$(DC) exec -T api php tests/accounts.php
 	$(DC) exec -T api php tests/run.php
 	$(DC) exec -T api php tests/statistics_upgrade.php
+	$(DC) exec -T api php tests/public_trails.php
+	$(DC) exec -T api php tests/public_trails_upgrade.php
 backup:
 	"$(SH)" tools/backup.sh
 restore:
@@ -53,6 +55,6 @@ restore:
 
 .PHONY: fixtures mailpit
 fixtures:
-	$(DC) exec -T api php bin/fixtures.php
+	$(DC) exec -T -e GPIX_FIXTURE_PASSWORD api php bin/fixtures.php
 mailpit:
 	$(DC) -f compose.yaml -f compose.mailpit.yaml up -d --wait

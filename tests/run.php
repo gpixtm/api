@@ -6,14 +6,14 @@ use App\Infrastructure\Database;
 use App\Infrastructure\PostgresTrailStore;
 
 function check(bool $condition, string $label): void { if (!$condition) throw new RuntimeException($label); echo "PASS $label\n"; }
-function trailStore(PDO $db, App\Infrastructure\OwnerContext $owner): PostgresTrailStore { return new PostgresTrailStore($db,$owner,new App\Infrastructure\PostgresTrailStatistics($db,$owner)); }
+function trailStore(PDO $db, App\Infrastructure\OwnerContext $owner): PostgresTrailStore { return new PostgresTrailStore($db,$owner,new App\Infrastructure\PostgresTrailStatistics($db,$owner),new App\Infrastructure\PostgresPublicTrails($db,$owner)); }
 function uuid(): string { $h=bin2hex(random_bytes(16)); return substr($h,0,8).'-'.substr($h,8,4).'-'.substr($h,12,4).'-'.substr($h,16,4).'-'.substr($h,20); }
 $db=Database::connect(); $accounts=new App\Infrastructure\Accounts($db); $session=$accounts->register(['username'=>'test_'.bin2hex(random_bytes(6)),'email'=>bin2hex(random_bytes(6)).'@example.test','password'=>'Testing123']);$owner=new App\Infrastructure\OwnerContext();$owner->id=$session['user']['id'];$store=trailStore($db,$owner); $id=uuid(); $op=uuid();
 $payload=['id'=>$id,'name'=>'Été — Hébergements '. $id,'segments'=>[[[43.0,-1.0,100],[43.01,-1.01,null]]],'pois'=>[['point'=>[43.0,-1.0,null],'name'=>'Église où dormir ? 🥾','description'=>'À côté : cœur, forêt, São, 東京.']], 'days'=>[[0, 500], [500, 1000]]];
 $request=['id'=>$id,'mutation'=>$op,'baseRevision'=>0,'deleted'=>false,'payload'=>$payload];
 try {
     $m=Mutation::fromArray($request);
-    check($store->apply($m)===['conflict'=>false,'revision'=>1],'first mutation');
+    check($store->apply($m)===['conflict'=>false,'revision'=>1,'publicId'=>$id],'first mutation shares the new line under its own identifier');
     $restored=array_values(array_filter(trailStore(Database::connect(),$owner)->all(),fn($r)=>$r['id']===$id));
     check($restored[0]['payload']['days']===$payload['days'],'walking days restored from API storage on a new connection');
     check($restored[0]['payload']['name']===$payload['name'] && $restored[0]['payload']['pois'][0]['name']===$payload['pois'][0]['name'] && $restored[0]['payload']['pois'][0]['description']===$payload['pois'][0]['description'],'Unicode names and descriptions preserved by PostgreSQL');
@@ -28,7 +28,7 @@ try {
         $invalid=$request; $invalid['payload']['days']=$days;
         try { Mutation::fromArray($invalid); throw new RuntimeException('accepted invalid walking day'); } catch (InvalidArgumentException) { echo "PASS walking day validation\n"; }
     }
-    check($store->apply($m)===['conflict'=>false,'revision'=>1],'lost acknowledgement replay is idempotent');
+    check($store->apply($m)==['conflict'=>false,'revision'=>1,'publicId'=>$id],'lost acknowledgement replay is idempotent');
     $request['mutation']=uuid();
     check($store->apply(Mutation::fromArray($request))['conflict']===true,'stale revision rejected');
     $request['baseRevision']=1; $request['deleted']=true;
@@ -112,5 +112,7 @@ try {
     $db->prepare('DELETE FROM receipts WHERE operation_id IN (?,?)')->execute([$op,$request['mutation']]);
     if (isset($walkId)) $db->prepare('DELETE FROM trails WHERE id=?')->execute([$walkId]);
     if (isset($walkRequest)) $db->prepare('DELETE FROM receipts WHERE operation_id=?')->execute([$walkRequest['mutation']]);
+    $db->prepare('DELETE FROM trails WHERE owner_id=?')->execute([$owner->id]);
+    $db->prepare('DELETE FROM public_trails WHERE author_id=?')->execute([$owner->id]);
     $db->prepare('DELETE FROM users WHERE id=?')->execute([$owner->id]);
 }

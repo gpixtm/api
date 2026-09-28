@@ -36,5 +36,11 @@ class Kernel extends BaseKernel
         $routes->add('package', '/api/packages/{name}')->controller([ApiController::class, 'package'])->methods(['GET']);
         $routes->add('elevations', '/api/elevations')->controller([ApiController::class, 'elevations'])->methods(['POST']);
         $routes->add('approach', '/api/approach')->controller([ApiController::class, 'approach'])->methods(['POST']);
+        $routes->add('public_trails', '/api/public-trails')->controller([ApiController::class, 'publicTrails'])->methods(['GET']);
+        $routes->add('public_trail', '/api/public-trails/{id}')->controller([ApiController::class, 'publicTrail'])->methods(['GET']);
+        $routes->add('public_trail_reviews', '/api/public-trails/{id}/reviews')->controller([ApiController::class, 'reviews'])->methods(['GET']);
+        $routes->add('public_places', '/api/public-places')->controller([ApiController::class, 'places'])->methods(['GET']);
+        $routes->add('public_trail_place', '/api/public-trails/{id}/places/{place}')->controller([ApiController::class, 'place'])->methods(['PUT', 'DELETE']);
+        $routes->add('public_trail_review','/api/public-trails/{id}/review')->controller([ApiController::class, 'review'])->methods(['PUT', 'DELETE']);
     }
 }

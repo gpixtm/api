@@ -42,6 +42,7 @@ finally:
         # The only target is the validated server UUID returned for this new user.
         sql = (f"BEGIN; DELETE FROM receipts WHERE owner_id='{created}'; "
                f"DELETE FROM trails WHERE owner_id='{created}'; "
+               f"DELETE FROM public_trails WHERE author_id='{created}'; "
                f"DELETE FROM users WHERE id='{created}' AND username='{username}'; COMMIT;")
         subprocess.run(['docker', 'compose', 'exec', '-T', 'db', 'psql', '-U', 'gpix',
                         '-d', 'gpix', '-v', 'ON_ERROR_STOP=1'], cwd=backend,

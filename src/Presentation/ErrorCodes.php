@@ -26,6 +26,12 @@ final class ErrorCodes
             'Text contains a lost character. Correct its name or reimport the original GPX.' => 'damagedText',
             'Invalid origin or destination coordinates.' => 'invalidRouteCoordinates',
             'Wait two seconds before recalculating.' => 'waitBeforeRouting',
+            'Walk the whole trail before reviewing it.' => 'completionRequired',
+            'Invalid rating' => 'invalidRating',
+            'Review comment too long' => 'reviewTooLong',
+            'Invalid place' => 'invalidPlace',
+            'Place too far from the trail' => 'placeTooFar',
+            'Only its author can change this place.' => 'placeNotYours',
             'Service unavailable or resource not found' => 'serviceUnavailable',
             default => 'invalidRequest',
         };

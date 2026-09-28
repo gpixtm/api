@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace App\Domain;
 final readonly class Mutation
 {
-    private static function validateText(string $text): void {
+    public static function validateText(string $text): void {
         if (preg_match('/\x{FFFD}|\x{00C3}[\x{0080}-\x{00BF}]|\x{00C2}[\x{0080}-\x{00BF}]|\x{00E2}\x{20AC}/u', $text)) {
             throw new \InvalidArgumentException('Text contains a lost character. Correct its name or reimport the original GPX.');
         }

@@ -55,7 +55,7 @@ Authenticated `POST /api/approach` joins the nearest GPX point through Valhalla.
 
 ## Fixtures and email
 
-`make fixtures` runs inside the existing API container without host PHP/Composer. It is an explicit development-only historical-owner fixture, not part of `make install`. It preserves changed passwords, performs no purge and refuses an unrelated public account with the same identity. Never publish its local login values in mobile launch files; keep optional prefill in ignored Dev configuration.
+`make fixtures` runs inside the existing API container without host PHP/Composer. It is an explicit development-only historical-owner fixture, not part of `make install`. It preserves changed passwords, performs no purge and refuses an unrelated public account with the same identity. Creating the account requires `GPIX_FIXTURE_PASSWORD` (8+ characters) in the calling shell, for example `GPIX_FIXTURE_PASSWORD=… make fixtures`; the password is never stored in the repository, and an existing account needs no variable. Never publish its local login values in mobile launch files; keep optional prefill in ignored Dev configuration.
 
 `make mailpit` captures emails at `http://127.0.0.1:8025`, using internal `mailpit:1025` and a dummy sender for API/worker. It forwards nothing externally. `make up` or `make dev-off` returns to `.env` SMTP; run `make mailpit` again to restore capture. The worker sends queued reset emails; copy the code into Forgot password → I have a reset code. Codes expire after 30 minutes and work once; manual entry does not rely on deep-link handling.
 

@@ -97,15 +97,26 @@ try:
         'payload': {'id': trail_id, 'name': 'HTTP acceptance isolated',
             'segments': [[[43.0, -1.0, 100], [43.01, -1.01, None]]], 'pois': []}}
     first = call('/api/sync', mutation, a['access_token'])
+    assert first['publicId'] == trail_id
     assert call('/api/sync', mutation, a['access_token']) == first
-    call('/api/sync', mutation, b['access_token'], expected=(403, 404, 409, 422))
-    assert any(t['id'] == trail_id for t in call('/api/trails', access=a['access_token']))
-    assert not any(t['id'] == trail_id for t in call('/api/trails', access=b['access_token']))
+    # Identifiers are per owner: the same identifier and operation from another account
+    # create that account's own copy, which reuses the shared trail.
+    renamed = json.loads(json.dumps(mutation))
+    renamed['payload']['name'] = 'HTTP acceptance renamed copy'
+    assert call('/api/sync', renamed, b['access_token']) == {'conflict': False, 'revision': 1, 'publicId': trail_id}
+    assert [t['payload']['name'] for t in call('/api/trails', access=a['access_token']) if t['id'] == trail_id] == ['HTTP acceptance isolated']
+    assert [t['payload']['name'] for t in call('/api/trails', access=b['access_token']) if t['id'] == trail_id] == ['HTTP acceptance renamed copy']
     other_id = str(uuid.uuid4())
     mutation['id'] = other_id
+    mutation['mutation'] = str(uuid.uuid4())
     mutation['payload']['id'] = other_id
-    assert call('/api/sync', mutation, b['access_token'])['conflict'] is False
-    check('owner isolation for reads, UUID writes and idempotency receipts')
+    assert call('/api/sync', mutation, b['access_token'])['publicId'] == trail_id
+    shared = call('/api/public-trails', access=b['access_token'])
+    assert [t['name'] for t in shared['trails'] if t['id'] == trail_id] == ['HTTP acceptance isolated']
+    assert call(f'/api/public-trails/{trail_id}', access=b['access_token'])['segments'] == mutation['payload']['segments']
+    review = call(f'/api/public-trails/{trail_id}/reviews', access=b['access_token'])
+    assert review['count'] == 0 and review['canReview'] is False and review['completion'] is None
+    check('owner isolation for private copies and receipts, one shared trail for everyone')
 
     call('/api/auth/change-password', {'current_password': 'incorrect', 'password': password + 'x'}, a['access_token'], expected=422)
     call('/api/auth/change-password', {'current_password': password, 'password': password + 'x'}, a['access_token'])
@@ -151,7 +162,8 @@ finally:
     # UUIDs above are server-returned and validated; only test-owned records removed.
     if created:
         ids = ','.join("'" + str(uuid.UUID(value)) + "'" for value in created)
-        sql = f'BEGIN; DELETE FROM receipts WHERE owner_id IN ({ids}); DELETE FROM trails WHERE owner_id IN ({ids}); DELETE FROM users WHERE id IN ({ids}); COMMIT;'
+        sql = (f'BEGIN; DELETE FROM receipts WHERE owner_id IN ({ids}); DELETE FROM trails WHERE owner_id IN ({ids}); '
+               f'DELETE FROM public_trails WHERE author_id IN ({ids}); DELETE FROM users WHERE id IN ({ids}); COMMIT;')
         subprocess.run(['docker', 'compose', 'exec', '-T', 'db', 'psql', '-U', 'gpix', '-d', 'gpix', '-v', 'ON_ERROR_STOP=1'],
             input=sql, text=True, stdout=subprocess.DEVNULL, check=True)
         print('PASS temporary accounts cleaned; personal data untouched')

@@ -11,6 +11,9 @@ A synced finished walk (`payload.walk.ended` present) counts for `walk.routeId`,
 
 ## Consistency
 
+Statistics stay private to their owner even though the trail itself is shared ([shared trails](PUBLIC_TRAILS.md)).
+
+
 `PostgresTrailStatistics::record` runs inside the mutation transaction of `PostgresTrailStore::apply`, after revision and ownership checks:
 
 - A receipt replay returns the stored response and does not count twice.

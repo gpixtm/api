@@ -8,9 +8,27 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 final readonly class ApiController
 {
-    public function __construct(private SyncLibrary $library, private CompleteElevations $elevations, private \App\Infrastructure\WalkingDirections $directions, private \App\Infrastructure\PostgresTrailStatistics $statistics) {}
+    public function __construct(private SyncLibrary $library, private CompleteElevations $elevations, private \App\Infrastructure\WalkingDirections $directions, private \App\Infrastructure\PostgresTrailStatistics $statistics, private \App\Infrastructure\PostgresPublicTrails $public) {}
     public function statistics(): JsonResponse { return new JsonResponse($this->statistics->all()); }
     public function approach(Request $request): JsonResponse { return new JsonResponse($this->directions->route($this->body($request))); }
+    public function publicTrails(Request $request): JsonResponse
+    {
+        return new JsonResponse($this->public->index($request->query->getInt('since'), $request->query->getInt('limit', \App\Infrastructure\PostgresPublicTrails::PAGE)));
+    }
+    public function publicTrail(string $id): JsonResponse { return new JsonResponse($this->public->find($id)); }
+    public function reviews(string $id): JsonResponse { return new JsonResponse($this->public->reviews($id)); }
+    public function review(Request $request, string $id): JsonResponse
+    {
+        return new JsonResponse($request->isMethod('DELETE') ? $this->public->removeReview($id) : $this->public->review($id, $this->body($request)));
+    }
+    public function places(Request $request): JsonResponse
+    {
+        return new JsonResponse($this->public->places($request->query->getInt('since'), $request->query->getInt('limit', \App\Infrastructure\PostgresPublicTrails::PAGE)));
+    }
+    public function place(Request $request, string $id, string $place): JsonResponse
+    {
+        return new JsonResponse($request->isMethod('DELETE') ? $this->public->removePlace($id, $place) : $this->public->savePlace($id, $place, $this->body($request)));
+    }
     public function health(): JsonResponse { return new JsonResponse(['status' => 'ok']); }
     public function trails(): JsonResponse { return new JsonResponse($this->library->all()); }
     public function sync(Request $request): JsonResponse { return new JsonResponse($this->library->apply($this->body($request))); }
