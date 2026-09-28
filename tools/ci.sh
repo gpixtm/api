@@ -22,6 +22,7 @@ ci exec -T api php tests/run.php
 ci exec -T api php tests/statistics_upgrade.php
 ci exec -T api php tests/public_trails.php
 ci exec -T api php tests/public_trails_upgrade.php
+ci exec -T api php tests/place_origin_upgrade.php
 ci exec -T api php tests/catalogue.php
 ci exec -T api php tests/catalogue_upgrade.php
 ci exec -T api php tests/approach.php

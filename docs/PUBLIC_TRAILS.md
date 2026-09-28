@@ -93,12 +93,19 @@ An unknown or malformed identifier returns 404.
 
 ## Places added on a trail
 
-`trail_places` holds the places walkers add on a shared trail where they stand: position (with optional elevation), `name` (1–200 characters) and `comment` (at most 2,000), `author_id`, a `deleted` tombstone and its own `change` sequence. `006_trail_places.sql` creates it.
+`trail_places` holds the places of a shared trail: position (with optional elevation), `name` (1–200 characters) and `comment` (at most 2,000), `origin`, `author_id`, a `deleted` tombstone and its own `change` sequence. `006_trail_places.sql` creates it; `010_place_origin.sql` adds `origin`.
+
+A place has one of two origins:
+
+- **`onSite`**: a walker added it where they stand. It lies within 100 m of the line. The phone checks the walker's real position; the API checks the distance. Every place created before `010` is `onSite`.
+- **`imported`**: the waypoints of a GPX file, attached to the trail by a walker (hostels, springs, churches along the Way of St James). It lies within 5 km of the line, since a hostel in the village may be off the path.
+
+A new imported place is never added twice. If a visible place of the same trail lies within 30 m and has an equivalent name (case, accents and punctuation ignored, as in search), the API returns that place, under its own identifier, instead of creating another. The phone then replaces its pending copy with it. A place added on site is always created.
 
 | Request | Response |
 | --- | --- |
-| `GET /api/public-places?since=<change>` | `{places: [{id, trailId, lat, lon, elevation, name, comment, author, mine, deleted, updatedAt, change}], next, more}`, tombstones included, oldest change first. |
-| `PUT /api/public-trails/{trailId}/places/{placeId}` `{lat, lon, elevation, name, comment}` | The place. The phone chooses `placeId`, so a retry changes nothing. 422 `placeTooFar` beyond 100 m of the line (between vertices included), 422 `invalidPlace`, 403 `placeNotYours` for another walker's place, 404 for an unknown trail. |
+| `GET /api/public-places?since=<change>` | `{places: [{id, trailId, lat, lon, elevation, name, comment, origin, author, mine, deleted, updatedAt, change}], next, more}`, tombstones included, oldest change first. |
+| `PUT /api/public-trails/{trailId}/places/{placeId}` `{lat, lon, elevation, name, comment, origin?}` | The place, or the existing place a new imported one duplicates. The phone chooses `placeId`, so a retry changes nothing. Without `origin`, a new place is `onSite` and an edited place keeps its origin, so older apps keep working. 422 `placeTooFar` beyond the origin's distance of the line (between vertices included), 422 `invalidPlace` (including an unknown origin), 403 `placeNotYours` for another walker's place, 404 for an unknown trail. |
 | `DELETE /api/public-trails/{trailId}/places/{placeId}` | The tombstone; idempotent, author only. |
 
-Writes take the same library lock as sync and reviews, so place changes commit in `change` order.
+Writes take the same library lock as sync and reviews, so place changes commit in `change` order. `tests/place_origin_upgrade.php` upgrades a database with existing places and tombstones.

@@ -4,6 +4,7 @@ namespace App\Infrastructure;
 use App\Domain\Mutation;
 use App\Domain\TrailFingerprint;
 use App\Domain\TrailOutline;
+use App\Domain\TrailPlace;
 use App\Domain\WalkCoverage;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -161,7 +162,7 @@ final readonly class PostgresPublicTrails
     {
         $limit = max(1, min(self::PAGE, $limit));
         $owner = $this->owner->requireId();
-        $q = $this->db->prepare("SELECT p.id, p.trail_id, p.lat, p.lon, p.elevation, p.name, p.comment, p.deleted, p.change, p.author_id, u.username,
+        $q = $this->db->prepare("SELECT p.id, p.trail_id, p.lat, p.lon, p.elevation, p.name, p.comment, p.origin, p.deleted, p.change, p.author_id, u.username,
                 to_char(p.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS updated
             FROM trail_places p LEFT JOIN users u ON u.id = p.author_id WHERE p.change > ? ORDER BY p.change LIMIT ?");
         $q->execute([max(0, $since), $limit + 1]);
@@ -177,26 +178,48 @@ final readonly class PostgresPublicTrails
 
     /**
      * Adds or edits the caller's place. The phone chooses the identifier, so a retry after a
-     * lost response changes nothing. Only the author edits a place, which must stay within
-     * TrailPlace::MAXIMUM_DISTANCE of the trail.
+     * lost response changes nothing. Only the author edits a place, which must stay within its
+     * origin's distance of the trail. A new imported place that a walker already shared on this
+     * trail, close by with an equivalent name, is not added again: the existing place is
+     * returned instead, under its own identifier.
      */
     public function savePlace(string $trailId, string $id, array $body): array
     {
         if (!preg_match(self::UUID, $id)) throw new HttpException(404, 'Trail not found.');
-        $place = \App\Domain\TrailPlace::fromArray($body);
+        $place = TrailPlace::fromArray($body);
         $owner = $this->owner->requireId();
-        $this->placeWrite(function () use ($trailId, $id, $place, $owner): void {
+        $this->placeWrite(function () use ($trailId, &$id, $place, $owner): void {
             $trail = $this->trail($trailId);
-            if ($place->distanceTo(json_decode($trail['segments'], true, 512, JSON_THROW_ON_ERROR)) > \App\Domain\TrailPlace::MAXIMUM_DISTANCE) {
+            $stored = $this->authorOf($trailId, $id, $owner);
+            // An older app sends no origin: its edit keeps the stored one.
+            $place = $place->withOrigin($place->origin ?? $stored ?? TrailPlace::ON_SITE);
+            if ($place->distanceTo(json_decode($trail['segments'], true, 512, JSON_THROW_ON_ERROR)) > $place->maximumDistance()) {
                 throw new \InvalidArgumentException('Place too far from the trail');
             }
-            $this->authorOf($trailId, $id, $owner);
-            $this->db->prepare("INSERT INTO trail_places (id, trail_id, author_id, lat, lon, elevation, name, comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            if ($stored === null && $place->origin === TrailPlace::IMPORTED && ($existing = $this->duplicateOf($trailId, $place)) !== null) {
+                $id = $existing;
+                return;
+            }
+            $this->db->prepare("INSERT INTO trail_places (id, trail_id, author_id, lat, lon, elevation, name, comment, origin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET lat = excluded.lat, lon = excluded.lon, elevation = excluded.elevation, name = excluded.name,
-                comment = excluded.comment, deleted = false, updated_at = now(), change = nextval('trail_place_changes')")
-                ->execute([$id, $trailId, $owner, $place->lat, $place->lon, $place->elevation, $place->name, $place->comment]);
+                comment = excluded.comment, origin = excluded.origin, deleted = false, updated_at = now(), change = nextval('trail_place_changes')")
+                ->execute([$id, $trailId, $owner, $place->lat, $place->lon, $place->elevation, $place->name, $place->comment, $place->origin]);
         });
         return $this->placeRow($id, $owner);
+    }
+
+    /** A visible place of the trail that $place duplicates, or null. */
+    private function duplicateOf(string $trailId, TrailPlace $place): ?string
+    {
+        $margin = TrailPlace::DUPLICATE_DISTANCE * 2 / 110574;
+        $lonMargin = $margin / max(0.01, cos(deg2rad($place->lat)));
+        $q = $this->db->prepare('SELECT id, lat, lon, name FROM trail_places WHERE trail_id = ? AND NOT deleted
+            AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? ORDER BY change');
+        $q->execute([$trailId, $place->lat - $margin, $place->lat + $margin, $place->lon - $lonMargin, $place->lon + $lonMargin]);
+        foreach ($q->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            if ($place->sameAs((float)$row['lat'], (float)$row['lon'], $row['name'])) return $row['id'];
+        }
+        return null;
     }
 
     /** Deleting is idempotent and leaves a tombstone for cached phones. */
@@ -206,22 +229,22 @@ final readonly class PostgresPublicTrails
         $owner = $this->owner->requireId();
         $this->placeWrite(function () use ($trailId, $id, $owner): void {
             $this->trail($trailId);
-            if (!$this->authorOf($trailId, $id, $owner)) throw new HttpException(404, 'Trail not found.');
+            if ($this->authorOf($trailId, $id, $owner) === null) throw new HttpException(404, 'Trail not found.');
             $this->db->prepare("UPDATE trail_places SET deleted = true, updated_at = now(), change = nextval('trail_place_changes') WHERE id = ? AND NOT deleted")
                 ->execute([$id]);
         });
         return $this->placeRow($id, $owner);
     }
 
-    /** Whether the place exists; throws when it belongs to someone else or another trail. */
-    private function authorOf(string $trailId, string $id, string $owner): bool
+    /** The origin of the existing place, or null when it is new; throws when it belongs to someone else or another trail. */
+    private function authorOf(string $trailId, string $id, string $owner): ?string
     {
-        $q = $this->db->prepare('SELECT trail_id, author_id FROM trail_places WHERE id = ? FOR UPDATE');
+        $q = $this->db->prepare('SELECT trail_id, author_id, origin FROM trail_places WHERE id = ? FOR UPDATE');
         $q->execute([$id]);
         $row = $q->fetch(\PDO::FETCH_ASSOC);
-        if (!$row) return false;
+        if (!$row) return null;
         if ($row['trail_id'] !== $trailId || $row['author_id'] !== $owner) throw new HttpException(403, 'Only its author can change this place.');
-        return true;
+        return $row['origin'];
     }
 
     private function placeRow(string $id, string $owner): array
@@ -237,7 +260,7 @@ final readonly class PostgresPublicTrails
         return [
             'id' => $r['id'], 'trailId' => $r['trail_id'], 'lat' => (float)$r['lat'], 'lon' => (float)$r['lon'],
             'elevation' => $r['elevation'] === null ? null : (float)$r['elevation'],
-            'name' => $r['name'], 'comment' => $r['comment'], 'author' => $r['username'], 'mine' => $r['author_id'] === $owner,
+            'name' => $r['name'], 'comment' => $r['comment'], 'origin' => $r['origin'], 'author' => $r['username'], 'mine' => $r['author_id'] === $owner,
             'deleted' => (bool)$r['deleted'], 'updatedAt' => $r['updated'], 'change' => (int)$r['change'],
         ];
     }
