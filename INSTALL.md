@@ -22,7 +22,7 @@ Default binding is `127.0.0.1:8080`. Use email/username and password, not a pers
 
 For the optional standalone Caddy gateway, point a DNS name to the host, provide ports 80/443, set `SERVER_NAME=hiking.example.org`, then run `make https`. Caddy stores certificates persistently. This alternative has not been field-deployed; an existing HTTPS proxy forwarding to loopback also works. Mobile Prod requires HTTPS; Dev permits HTTP only on private IPv4.
 
-Full-workspace commands `make debug-config` / `make dev` require sibling `../mobile` and `../.tooling/flutter`. `make dev` reads `../mobile/config/dev.local.json`, publishes on that explicit LAN interface and prepares Mailpit; `make dev-off` restores loopback. No tunnel is required. Verify `/health` from the phone, not solely the host's own LAN address.
+Full-workspace commands `make debug-config` / `make dev` require sibling `../mobile` and the [Puro](https://puro.dev) environment `gpix` on `PATH` (setup in the mobile repository's `docs/DEBUG-VSCODE.md`); they run `puro -e gpix dart`. Override `PURO` or `PURO_ENV` if needed. `make dev` reads `../mobile/config/dev.local.json`, publishes on that explicit LAN interface and prepares Mailpit; `make dev-off` restores loopback. No tunnel is required. Verify `/health` from the phone, not solely the host's own LAN address.
 
 ## Commands and recovery
 

@@ -1,7 +1,7 @@
 """Run Flutter SQLite sync against local HTTP with one disposable account.
 
 From backend/: py tests/mobile_sync.py
-Requires the full checkout (mobile/ and .tooling/flutter) and the already-running
+Requires the full checkout (mobile/), the Puro environment gpix and the already-running
 migrated local stack. Does not change listeners,
 fixtures, real credentials or production URL validation. No mail is sent.
 """
@@ -35,8 +35,7 @@ try:
     environment = os.environ.copy()
     environment.update(GPIX_TEST_IDENTIFIER=username, GPIX_TEST_PASSWORD=password,
                        GPIX_TEST_URL='http://10.0.2.2:8080', GPIX_TEST_LOOPBACK='1')
-    flutter = root / '.tooling/flutter/bin' / ('flutter.bat' if os.name == 'nt' else 'flutter')
-    result = subprocess.run([str(flutter), 'test', 'test/api_integration_test.dart'],
+    result = subprocess.run(['puro', '-e', 'gpix', 'flutter', 'test', 'test/api_integration_test.dart'],
                             cwd=root / 'mobile', env=environment).returncode
 finally:
     if created:

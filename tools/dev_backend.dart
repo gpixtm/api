@@ -6,7 +6,7 @@ Future<void> main(List<String> args) async {
   final mobile = Directory('${root.parent.path}/mobile');
   if (!mobile.existsSync()) {
     stderr.writeln(
-      'Mobile Dev commands require the complete workspace, with mobile/ and .tooling/ alongside backend/. For the standalone server: make install or make up.',
+      'Mobile Dev commands require the complete workspace, with mobile/ alongside backend/ and the Puro environment gpix. For the standalone server: make install or make up.',
     );
     exitCode = 1;
     return;

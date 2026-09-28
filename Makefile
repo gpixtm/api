@@ -16,16 +16,17 @@ prod-status:
 
 DC := docker compose
 SH := sh
-DART := ../.tooling/flutter/bin/dart
+# The mobile workspace's Flutter SDK is the Puro environment `gpix`.
+PURO := puro
+PURO_ENV := gpix
 ifeq ($(OS),Windows_NT)
 SH := C:/Program Files/Git/bin/sh.exe
-DART := ..\.tooling\flutter\bin\dart.bat
 endif
 .PHONY: dev dev-off debug-config
 debug-config:
-	"$(DART)" tools/dev_backend.dart init
+	"$(PURO)" -e $(PURO_ENV) dart tools/dev_backend.dart init
 dev:
-	"$(DART)" tools/dev_backend.dart
+	"$(PURO)" -e $(PURO_ENV) dart tools/dev_backend.dart
 dev-off:
 	$(DC) -f compose.yaml up -d --wait
 .PHONY: install up down logs test migrate backup restore
