@@ -1,0 +1,8 @@
+#!/bin/sh
+# Rejects commit messages that attribute the commit to the coding assistant
+# or its vendor (see "Absolute commit attribution rule" in AGENTS.md).
+if grep -v '^#' "$1" | grep -qiE 'claude|anthropic|generated with'; then
+  echo "commit-msg: the message mentions the coding assistant or its vendor." >&2
+  echo "Remove the attribution line (see AGENTS.md) and commit again." >&2
+  exit 1
+fi
