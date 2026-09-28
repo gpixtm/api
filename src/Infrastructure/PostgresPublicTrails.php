@@ -276,9 +276,10 @@ final readonly class PostgresPublicTrails
     }
 
     /**
-     * Best share of the trail one of the walker's finished walks covered, or null without any.
-     * A walk counts when it followed this trail or a private copy of it: guided walks carry
-     * `sourceTrailId`, free walks the `routeId` they created or matched.
+     * Share of the trail the walker's finished walks covered together, or null without any:
+     * a stage walked over two days counts as walked. A walk counts when it followed this trail
+     * or a private copy of it: guided walks carry `sourceTrailId`, free walks the `routeId`
+     * they created or matched. Each walk keeps its own segments, so no line joins two walks.
      */
     private function completion(string $owner, string $id, array $segments): ?float
     {
@@ -290,13 +291,11 @@ final readonly class PostgresPublicTrails
             AND jsonb_typeof(payload->'walk') = 'object' AND jsonb_typeof(payload->'walk'->'ended') = 'string'
             AND (payload->'walk'->>'sourceTrailId' IN ($marks) OR payload->'walk'->>'routeId' IN ($marks))");
         $walks->execute([$owner, ...$references, ...$references]);
-        $best = null;
+        $walked = null;
         while (($walk = $walks->fetchColumn()) !== false) {
-            $coverage = WalkCoverage::of($segments, json_decode($walk, true, 512, JSON_THROW_ON_ERROR) ?? []);
-            $best = max($best ?? 0.0, $coverage);
-            if ($best >= WalkCoverage::COMPLETE) break;
+            $walked = [...$walked ?? [], ...json_decode($walk, true, 512, JSON_THROW_ON_ERROR) ?? []];
         }
-        return $best;
+        return $walked === null ? null : WalkCoverage::of($segments, $walked);
     }
 
     private function write(callable $change, string $id): void

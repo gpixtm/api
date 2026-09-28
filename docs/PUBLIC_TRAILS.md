@@ -58,14 +58,14 @@ All writes, sync mutations and reviews alike, take the library advisory lock (`7
 
 ## Reviews and completion
 
-A review is accepted only when one of the walker's synced, finished walks covered at least 90 % of the trail (`WalkCoverage::COMPLETE`). A walk counts for this trail through either of these fields:
+A review is accepted only when the walker's synced, finished walks together covered at least 90 % of the trail (`WalkCoverage::COMPLETE`). A stage walked over two days, or in pieces, therefore counts once all of it is walked (decision of 28 September 2026). A walk counts for this trail through either of these fields:
 
 - `walk.sourceTrailId`, for a guided walk;
 - `walk.routeId`, for a free walk that created or matched a route.
 
 Either field may name the shared identifier or one of the walker's private copies.
 
-Coverage is the share of the trail's length passed within 50 m, in either direction. The trail is sampled every 20 m. The walk is densified every 20 m inside each recorded segment, so a recording gap adds no line. The check runs at review time on the stored walks; nothing is trusted from the phone.
+Coverage is the share of the trail's length passed within 50 m, in either direction. The trail is sampled every 20 m. Every walk is densified every 20 m inside each of its recorded segments, so neither a recording gap nor the space between two walks adds a line. The check runs at review time on the stored walks; nothing is trusted from the phone.
 
 ## API (authenticated)
 

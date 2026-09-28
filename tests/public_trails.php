@@ -96,17 +96,18 @@ try {
     $small = $catalogue('b')->index($since, 1);
     check(count($small['trails']) === 1 && ($small['more'] || $page['trails'] === $small['trails']), 'the index pages by change');
 
-    // Reviews: only after one walk covered at least 90 % of the trail.
+    // Reviews: only after the walker's walks together covered at least 90 % of the trail.
     [$status, $error] = $http('b', 'PUT', "/api/public-trails/{$mine['id']}/review", ['rating' => 5, 'comment' => 'Superbe']);
     check($status === 403 && $error['code'] === 'completionRequired', 'no review before walking the trail');
     $push('b', $walk($theirs['id'], [line(45.2, $geometry[0][0][1], 8)]));
     [$status, $reviews] = $http('b', 'GET', "/api/public-trails/{$mine['id']}/reviews");
     check($status === 200 && $reviews['canReview'] === false && $reviews['completion'] > 0.7, 'a partial walk shows its progress but cannot review');
     check($http('b', 'PUT', "/api/public-trails/{$mine['id']}/review", ['rating' => 4])[0] === 403, 'a partial walk is refused');
-    $push('b', $walk($theirs['id'], [array_reverse($geometry[0])]));
+    // The next day, the rest of the trail, walked backwards from its end.
+    $push('b', $walk($theirs['id'], [array_slice(array_reverse($geometry[0]), 0, 4)]));
     [$status, $reviews] = $http('b', 'PUT', "/api/public-trails/{$mine['id']}/review", ['rating' => 4, 'comment' => "  Très beau, départ à 7 h 🌄  "]);
     check($status === 200 && $reviews['canReview'] && $reviews['count'] === 1 && $reviews['average'] == 4.0
-        && $reviews['reviews'][0]['comment'] === 'Très beau, départ à 7 h 🌄' && $reviews['reviews'][0]['mine'] === true, 'a walker who completed the trail reviews it, Unicode preserved');
+        && $reviews['reviews'][0]['comment'] === 'Très beau, départ à 7 h 🌄' && $reviews['reviews'][0]['mine'] === true, 'two walks that together cover the trail allow a review, Unicode preserved');
     [$status, $reviews] = $http('b', 'PUT', "/api/public-trails/{$mine['id']}/review", ['rating' => 2, 'comment' => '']);
     check($status === 200 && $reviews['count'] === 1 && $reviews['average'] == 2.0, 'one review per walker, updated in place');
     [$status, $reviews] = $http('a', 'PUT', "/api/public-trails/{$mine['id']}/review", ['rating' => 5]);
