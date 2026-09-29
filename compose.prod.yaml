@@ -58,7 +58,7 @@ services:
     <<: *app
     command: [php, bin/mail-worker.php]
   # Open-data catalogue acquisitions: queued countries, then every acquired country nightly.
-  # Extracts and working files go to the large storage disk, never the database volume.
+  # Extracts and working files go to CATALOGUE_STORAGE, ideally a large data disk, never the database volume.
   catalogue-worker:
     <<: *app
     command: [php, bin/catalogue.php, work]
@@ -68,7 +68,7 @@ services:
       APP_SECRET: ${APP_SECRET:?Missing production secret}
       CATALOGUE_DIR: /data/catalogue
     volumes:
-      - ${CATALOGUE_STORAGE:-/srv/gpix/catalogue}:/data/catalogue
+      - ${CATALOGUE_STORAGE:?Set CATALOGUE_STORAGE in shared/.env}:/data/catalogue
 
 volumes:
   database:
@@ -78,4 +78,4 @@ volumes:
 networks:
   proxy:
     external: true
-    name: ${PROXY_NETWORK:-proxy}
+    name: ${PROXY_NETWORK:?Set PROXY_NETWORK in shared/.env}

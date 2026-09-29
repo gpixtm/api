@@ -29,6 +29,7 @@ final readonly class Accounts implements \App\Domain\Authentication {
   $identifier=strtolower(trim((string)($v['identifier']??'')));$password=(string)($v['password']??'');$this->throttle('identifier',$identifier,10);
   $this->db->beginTransaction();try {
    $q=$this->db->prepare('SELECT * FROM users WHERE lower(username)=? OR lower(email)=? FOR UPDATE');$q->execute([$identifier,$identifier]);$u=$q->fetch(\PDO::FETCH_ASSOC);
+   // Unknown users are checked against a throwaway hash so timing does not reveal which accounts exist.
    $hash=$u['password_hash']??'$2y$13$0JrIJC1WKi4AT8ZIhXCZ0uDUiREfyASlFBOA8sbKsUaSJIA9pHOeS';
    if(!self::hasher()->verify($hash,$password)||!$u)throw new HttpException(401,'Incorrect username or password.');
    $r=$this->issue($u);$this->db->commit();return $r;

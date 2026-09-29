@@ -12,7 +12,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final readonly class GeofabrikExtracts
 {
     public const INDEX = 'https://download.geofabrik.de/index-v1-nogeom.json';
-    public const USER_AGENT = 'Gpix-catalogue/1.0 (+https://api.example.org)';
+    public const USER_AGENT = 'Gpix-catalogue/1.0 (+https://github.com/gpixtm/api)';
 
     public function __construct(private HttpClientInterface $http, private string $directory) {}
 

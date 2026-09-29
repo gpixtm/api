@@ -13,7 +13,7 @@ Phones never copy the catalogue. They load pins for the visible map area and sea
 3. The worker reads them into compact memory and plans trails and groups (`OsmCataloguePlan`).
 4. It writes them in short batches under the library lock (`CatalogueWriter`).
 
-Extracts and working files live in `CATALOGUE_DIR`. In production this is `/srv/gpix/catalogue` on the storage disk (`CATALOGUE_STORAGE`), never the database volume.
+Extracts and working files live in `CATALOGUE_DIR`. In production, `CATALOGUE_STORAGE` mounts it from the host, ideally a large data disk, never the database volume.
 
 ### What a relation becomes
 

@@ -1,7 +1,12 @@
 #!/bin/sh
-# Run as the production Unix user. A short-lived GitHub registration token is read from stdin.
+# Registers a self-hosted GitHub Actions runner for deployments, run as the
+# production Unix user. A short-lived registration token is read from stdin.
+# RUNNER_REPOSITORY_URL is the repository running the deployment workflow; keep
+# self-hosted runners away from public repositories, whose forks can run code.
 set -eu
 umask 077
+repository_url=${RUNNER_REPOSITORY_URL:?Set RUNNER_REPOSITORY_URL, for example https://github.com/owner/deploy-repo}
+runner_name=${RUNNER_NAME:-gpix-production}
 runner_dir="$HOME/actions-runner-gpix"
 mkdir -p "$runner_dir"
 cd "$runner_dir"
@@ -14,12 +19,12 @@ tar -xzf "$archive"
 rm "$archive"
 IFS= read -r token
 token=$(printf '%s' "$token" | tr -d '\r\n')
-./config.sh --unattended --url https://github.com/gpixtm/api --token "$token" --name gpix-production --labels gpix-production --work _work
+./config.sh --unattended --url "$repository_url" --token "$token" --name "$runner_name" --labels "$runner_name" --work _work
 unset token
 mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/gpix-actions-runner.service" <<EOF
 [Unit]
-Description=GitHub Actions runner for gpixtm/api
+Description=GitHub Actions runner for Gpix deployments
 After=network-online.target
 
 [Service]

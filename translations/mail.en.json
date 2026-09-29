@@ -1,4 +1,4 @@
 {
   "resetSubject": "Gpix — reset your password",
-  "resetBody": "In Gpix, open Forgot password, then I have a reset code. Code (valid for 30 minutes after the request):\n{token}\n\nLink: gpix://reset-password?token={token}\nIgnore this message if you did not request a reset."
+  "resetBody": "In Gpix, open “Forgot password”, then “I have a reset code”. Code (valid for 30 minutes after the request):\n{token}\n\nLink: gpix://reset-password?token={token}\nIgnore this message if you did not request a reset."
 }

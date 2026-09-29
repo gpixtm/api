@@ -12,10 +12,11 @@ Commit messages, tags, PR titles and descriptions never mention the coding assis
 
 ## Work and delivery
 
-- The private repository is `gpixtm/api`. **Always develop on `develop`**, preserving existing changes. Check the branch before editing; use `main` only for an approved delivery, then return to `develop`.
-- Every `develop` push runs tests. Every `main` push runs tests and deploys to production on success. **A local merge from `develop` into `main`, followed by a push, is sufficient; a PR is not mandatory.** PRs targeting `main` test without deploying. A manual run on `main` can resume delivery.
+- This public repository is `gpixtm/api`, licensed AGPL-3.0-or-later. **Always develop on `develop`**, preserving existing changes. Check the branch before editing; use `main` only for an approved delivery, then return to `develop`. External contributions arrive as pull requests; see [CONTRIBUTING.md](CONTRIBUTING.md).
+- Every push and pull request runs tests on GitHub-hosted runners ([.github/workflows/ci.yaml](.github/workflows/ci.yaml)). A tested `main` push then asks the maintainers' private deployment repository to deploy that commit. **A local merge from `develop` into `main`, followed by a push, is sufficient; a PR is not mandatory.**
 - A `main` push is a production action. Follow the approval cycle below; documentation changes alone do not require a deployment.
-- Before deployment, server, backup, proxy or SMTP work, read [docs/PRODUCTION.md](docs/PRODUCTION.md). The effective workflow is [.github/workflows/deploy.yaml](.github/workflows/deploy.yaml); inspect current scripts rather than assuming this state is permanent.
+- Before deployment, server, backup, proxy or SMTP work, read [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and the maintainers' private operations notes. Inspect current scripts rather than assuming this state is permanent.
+- **Never commit information about the production server**: host names, domains, IP addresses, SSH accounts, directory paths, network names, provider accounts or email addresses. They belong in the private operations repository and the server's `shared/.env`. Keep generic placeholders (`example.org`, `/srv/gpix`) in tracked files.
 
 ## Feature completion cycle
 
@@ -29,29 +30,29 @@ Commit messages, tags, PR titles and descriptions never mention the coding assis
 ## Validation and deployment
 
 - `make ci` builds the image, validates Composer/PHP, applies migrations and tests against disposable PostgreSQL and isolated Mailpit. These checks stay outside production. Docker Compose and Python 3 are required.
-- GitHub runs tests on a hosted runner, then `make deploy` on the dedicated `gpix-production` runner. Its user service is `gpix-actions-runner`, enabled at boot through systemd/Linger. GitHub needs no incoming SSH access to the private server.
-- Production uses `compose.prod.yaml` and `prod-*` targets. Generic `install`, `up`, `test`, `backup` and `restore` targets operate on development and are not production shortcuts.
+- Self-hosted runners never serve this public repository: its pull requests could run code on them and its logs are public. Deployment runs from the private repository's workflow.
+- Production uses `compose.prod.yaml`, `make deploy` and `prod-*` targets. Generic `install`, `up`, `test`, `backup` and `restore` targets operate on development and are not production shortcuts.
 - Preserve `tools/deploy.sh` ordering: lock, clean-commit export, build, preserve database, stop API/worker writes, backup, transactional migrations, startup and health check, then update `current` and `deployed-revision`.
 - Install with `composer install --no-dev` from committed `composer.lock`. Prepare and test dependency changes in development; never run an automatic production `composer update`.
 - Add new migration files for schema evolution. Applied migrations are tracked by filename; editing an applied file does not rerun it.
 - Preserve readable source permissions during extraction (`tar -xpf`). A secret-protecting `umask 077` applied to source files prevents Apache serving them (HTTP 403). Keep map files readable by Apache.
-- Verify the GitHub job, `deployed-revision`, containers and HTTP/database health before declaring success. Distinguish internal proxy checks from public HTTPS validation.
+- Verify the deployment job, `deployed-revision`, containers and HTTP/database health before declaring success. Distinguish internal proxy checks from public HTTPS validation.
 
 ## Data and recovery
 
 - Production already has real accounts and GPX. Default to read-only checks; never load fixtures, test accounts or destructive tests there.
-- Preserve the external PostgreSQL volume `gpix_prod_database`, `/srv/gpix/shared/.env` and `/srv/gpix/shared/maps/`. Preserve existing secrets, including `APP_SECRET` and SMTP credentials, during updates.
-- `/srv/gpix/releases/<commit>/` holds sources; `current` points to the last successful release; `backups/` holds database dumps and private secret/map archives. Keep persistent data outside releases.
+- Preserve the external PostgreSQL volume `gpix_prod_database`, `shared/.env` and `shared/maps/` under the deployment root. Preserve existing secrets, including `APP_SECRET` and SMTP credentials, during updates.
+- `releases/<commit>/` holds sources; `current` points to the last successful release; `backups/` holds database dumps and private secret/map archives. Keep persistent data outside releases.
 - A failure after stopping writes leaves API/worker stopped and retains database/backups. Diagnose before recovery: an old image may be incompatible with a newly migrated schema.
 - Restore or delete data only for an explicitly requested recovery, never as deployment cleanup. Preserve volumes and avoid global Docker cleanup on the shared server. Test restores into a separate database.
 - Local backups do not replace off-server copies. Do not claim external backup or automatic retention exists without verifying it.
 
 ## Access, proxy and email
 
-- Obtain the existing server access details from the production guide and private local SSH configuration. The production root is `/srv/gpix`; preserve the established deployment and access arrangement.
-- Nginx Proxy Manager terminates HTTPS for `api.example.org` and forwards to `http://gpix-api:80` on `proxy`. API and PostgreSQL expose no host ports. Preserve this separation from development.
-- SMTP uses the configured sender and provider in the private server `.env`. The user enters any provider app password there; never display, commit or copy secrets into documentation, logs or workflow parameters. Remove presentation spaces from a Google app password when entering it.
-- From `/srv/gpix/current`, `make prod-status` inspects the stack and `make prod-reload` applies configuration to API/worker. `make prod-mail-test TO=...` sends real email; use it only for a requested send test with the agreed recipient.
+- Server access details live only in the private operations notes and local SSH configuration; preserve the established deployment and access arrangement.
+- The reverse proxy terminates HTTPS and forwards to `http://gpix-api:80` on `PROXY_NETWORK`. API and PostgreSQL expose no host ports. Preserve this separation from development.
+- SMTP uses the sender and provider configured in the server's private `.env`. The user enters any provider app password there; never display, commit or copy secrets into documentation, logs or workflow parameters.
+- From the deployment's `current` directory, `make prod-status` inspects the stack and `make prod-reload` applies configuration to API/worker. `make prod-mail-test TO=...` sends real email; use it only for a requested send test with the agreed recipient.
 - Mailpit success validates application behavior, not real-provider delivery. Verify SMTP configuration and actual receipt separately before claiming production email works.
 
 ## Localization contracts

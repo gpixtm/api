@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
-root=${DEPLOY_ROOT:-/srv/gpix}
+# Run from <root>/current: the deployment root is inferred from the active release.
+root=${DEPLOY_ROOT:-$(dirname "$(dirname "$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)")")}
 test -f "$root/deployed-revision"
 export GPIX_RELEASE=$(cat "$root/deployed-revision")
 export GPIX_SHARED_DIR="$root/shared"
