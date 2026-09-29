@@ -1,6 +1,11 @@
 SHELL := /bin/sh
-.DEFAULT_GOAL := debug-config
-.PHONY: ci deploy
+.DEFAULT_GOAL := help
+.PHONY: help ci deploy
+help:
+	@echo 'Development: make install | up | down | logs | test | migrate | mailpit | fixtures | backup | restore FILE=...'
+	@echo 'Checks:      make ci        (isolated build, migrations and full test suite)'
+	@echo 'Phone LAN:   make debug-config | dev | dev-off   (needs the sibling ../mobile checkout)'
+	@echo 'Production:  make deploy | prod-status | prod-reload | prod-mail-test TO=... (see docs/DEPLOYMENT.md)'
 ci:
 	sh tools/ci.sh
 deploy:
@@ -35,7 +40,7 @@ dev:
 	"$(PURO)" -e $(PURO_ENV) dart tools/dev_backend.dart
 dev-off:
 	$(DC) -f compose.yaml up -d --wait
-.PHONY: install up down logs test migrate backup restore
+.PHONY: https install up down logs test migrate backup restore
 https:
 	$(DC) -f compose.yaml -f compose.https.yaml up -d --wait
 install:
@@ -71,6 +76,6 @@ catalogue-runs:
 
 .PHONY: fixtures mailpit
 fixtures:
-	$(DC) exec -T -e GPIX_FIXTURE_PASSWORD api php bin/fixtures.php
+	$(DC) exec -T -e GPIX_FIXTURE_USERNAME -e GPIX_FIXTURE_EMAIL -e GPIX_FIXTURE_PASSWORD api php bin/fixtures.php
 mailpit:
 	$(DC) -f compose.yaml -f compose.mailpit.yaml up -d --wait

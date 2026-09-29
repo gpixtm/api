@@ -1,18 +1,19 @@
 # Installing the Gpix server
 
-This guide covers the standalone/development Compose stack. For the existing production service, use [production operations](docs/PRODUCTION.md) and [agent instructions](AGENTS.md), including approval and data-preservation rules.
+This guide covers the standalone/development Compose stack. For a release-based server deployment behind your own reverse proxy, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Requirements and installation
 
 Linux, Docker Engine, recent Docker Compose v2 with `--wait`, GNU Make, a POSIX shell, `od`, `tr`, `grep` and `tar`. Build access to Docker/Composer registries is required. Linux containers on x86_64 Docker Desktop have been tested; arm64 images are available but unverified. Allow at least 2 GB RAM (4 GB recommended for builds), plus map/backup storage. Large map/DEM preparation needs separate sizing.
 
 ```sh
-cd gpix-server # or backend/ in the full workspace
+git clone https://github.com/gpixtm/api.git
+cd api
 make install
 make test
 ```
 
-Run server commands from this directory. Private configuration is `.env`, maps are `data/maps/`, backups are `backups/`. The archive is autonomous and does not need Flutter. Scripts run with `sh` and use LF line endings. On Windows, Make and Docker must be on PATH; the Makefile uses Git Bash at `C:/Program Files/Git/bin/sh.exe`. Override `SH` when installed elsewhere.
+Run server commands from this directory. Private configuration is `.env`, maps are `data/maps/`, backups are `backups/`. The server does not need Flutter or the mobile repository. Scripts run with `sh` and use LF line endings. On Windows, Make and Docker must be on PATH; the Makefile uses Git Bash at `C:/Program Files/Git/bin/sh.exe`. Override `SH` when installed elsewhere.
 
 `make install` generates two random internal secrets only when `.env` does not exist, builds, waits for PostgreSQL TCP, migrates, then waits for the API. Compose identity is `gpix`, database volume `gpix_database`. Re-running preserves data and secrets. An existing volume without `.env` stops installation: restore the original configuration. Do not run competing copies under the same identity on one host.
 
@@ -55,10 +56,10 @@ Authenticated `POST /api/approach` joins the nearest GPX point through Valhalla.
 
 ## Fixtures and email
 
-`make fixtures` runs inside the existing API container without host PHP/Composer. It is an explicit development-only historical-owner fixture, not part of `make install`. It preserves changed passwords, performs no purge and refuses an unrelated public account with the same identity. Creating the account requires `GPIX_FIXTURE_PASSWORD` (8+ characters) in the calling shell, for example `GPIX_FIXTURE_PASSWORD=… make fixtures`; the password is never stored in the repository, and an existing account needs no variable. Never publish its local login values in mobile launch files; keep optional prefill in ignored Dev configuration.
+`make fixtures` runs inside the existing API container without host PHP/Composer. It is an explicit development-only historical-owner fixture, not part of `make install`: it creates one account (`GPIX_FIXTURE_USERNAME`, default `walker`; `GPIX_FIXTURE_EMAIL`, default `walker@example.test`) and gives it any library rows created before accounts existed. It preserves changed passwords, performs no purge and refuses an unrelated public account with the same identity. Creating the account requires `GPIX_FIXTURE_PASSWORD` (8+ characters) in the calling shell, for example `GPIX_FIXTURE_PASSWORD=… make fixtures`; the password is never stored in the repository, and an existing account needs no variable. Never publish its local login values in mobile launch files; keep optional prefill in ignored Dev configuration.
 
 `make mailpit` captures emails at `http://127.0.0.1:8025`, using internal `mailpit:1025` and a dummy sender for API/worker. It forwards nothing externally. `make up` or `make dev-off` returns to `.env` SMTP; run `make mailpit` again to restore capture. The worker sends queued reset emails; copy the code into Forgot password → I have a reset code. Codes expire after 30 minutes and work once; manual entry does not rely on deep-link handling.
 
-For a separately installed live server, configure real `MAILER_DSN` and `MAIL_FROM`, then recreate API/worker. For existing production use `make prod-reload`. Without configuration, known/unknown reset requests both return 503. Otherwise the neutral reply means queued; the worker retries every 30 seconds until expiry. Inspect worker logs and attempt counts without printing codes. Preserve `APP_SECRET`, which encrypts queued payloads. See [authentication](docs/AUTH.md).
+For a separately installed live server, configure real `MAILER_DSN` and `MAIL_FROM`, then recreate API/worker. For a `make deploy` server use `make prod-reload`. Without configuration, known/unknown reset requests both return 503. Otherwise the neutral reply means queued; the worker retries every 30 seconds until expiry. Inspect worker logs and attempt counts without printing codes. Preserve `APP_SECRET`, which encrypts queued payloads. See [authentication](docs/AUTH.md).
 
 Mobile Prod does not prefill credentials. First login requires a connection; a recognized session then opens its private library offline despite access-token expiry. Explicit sign-out closes local access immediately; remote revocation is discovered on reconnect.

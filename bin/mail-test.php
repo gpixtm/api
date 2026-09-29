@@ -8,7 +8,7 @@ if (!filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
     exit(1);
 }
 if (!App\Infrastructure\ResetDelivery::configured()) {
-    fwrite(STDERR, "Configure MAILER_DSN and MAIL_FROM in the private production .env, then run make prod-reload.\n");
+    fwrite(STDERR, "Configure MAILER_DSN and MAIL_FROM in the server's private .env, then reload the API and worker (make prod-reload in production).\n");
     exit(1);
 }
 try {
@@ -18,8 +18,8 @@ try {
     $mailer->send((new Symfony\Component\Mime\Email())
         ->from(getenv('MAIL_FROM'))
         ->to($recipient)
-        ->subject('Gpix — test SMTP')
-        ->text("Gpix email delivery works from the production server.\n"));
+        ->subject('Gpix — SMTP test')
+        ->text("Gpix email delivery works from this server.\n"));
     echo "SMTP accepted the message. Check the recipient's inbox and spam folder to confirm delivery.\n";
 } catch (Throwable $e) {
     // Do not print SMTP diagnostics: they may contain authentication material.

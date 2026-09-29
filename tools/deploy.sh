@@ -3,7 +3,8 @@
 set -eu
 umask 077
 source_dir=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-root=${DEPLOY_ROOT:-/srv/gpix}
+# DEPLOY_ROOT is the absolute directory holding releases, shared state and backups.
+root=${DEPLOY_ROOT:?Set DEPLOY_ROOT to the absolute deployment directory}
 case "$root" in /*) ;; *) echo 'DEPLOY_ROOT must be absolute.' >&2; exit 1;; esac
 mkdir -p "$root/releases" "$root/shared/maps" "$root/backups"
 # Apache must be able to traverse the read-only maps mount; secrets stay private.
@@ -25,7 +26,8 @@ if [ ! -f "$env_file" ]; then
   secret() { od -An -N32 -tx1 /dev/urandom | tr -d ' \n'; }
   {
     printf 'DB_PASSWORD=%s\nAPP_SECRET=%s\n' "$(secret)" "$(secret)"
-    printf 'PROXY_NETWORK=proxy\nMAILER_DSN=\nMAIL_FROM=\nELEVATION_URL=\n'
+    printf 'PROXY_NETWORK=%s\nCATALOGUE_STORAGE=%s\n' "${PROXY_NETWORK:-}" "${CATALOGUE_STORAGE:-}"
+    printf 'MAILER_DSN=\nMAIL_FROM=\nELEVATION_URL=\n'
   } > "$env_file"
 fi
 chmod 600 "$env_file"
@@ -53,7 +55,7 @@ on_exit() {
   status=$?
   if [ "$status" -ne 0 ] && [ "$maintenance" = 1 ]; then
     prod stop api mail-worker catalogue-worker || true
-    echo "Deployment failed. API/workers remain stopped; database and backups preserved in $root. See docs/PRODUCTION.md." >&2
+    echo "Deployment failed. API/workers remain stopped; database and backups preserved in $root. See docs/DEPLOYMENT.md." >&2
   fi
 }
 trap on_exit EXIT
@@ -72,4 +74,4 @@ ln -sfn "$release" "$root/current.next"
 mv -Tf "$root/current.next" "$root/current"
 maintenance=0
 printf '%s\n' "$revision" > "$root/deployed-revision"
-echo "Deployed $revision. Proxy upstream: http://gpix-api:80; public URL: https://api.example.org"
+echo "Deployed $revision. Reverse proxy upstream: http://gpix-api:80"

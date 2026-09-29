@@ -1,7 +1,7 @@
 {
-  "name": "gpix/personal-api",
-  "description": "Personal offline hiking library API",
-  "license": "proprietary",
+  "name": "gpixtm/api",
+  "description": "Account, sync and shared trail API for the Gpix offline-first hiking app",
+  "license": "AGPL-3.0-or-later",
   "type": "project",
   "require": {
     "php": ">=8.4",
